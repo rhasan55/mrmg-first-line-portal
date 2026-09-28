@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "test:browser-generator": "node tests/test_browser_generator.mjs"
+    "test:browser-generator": "node tests/test_browser_generator.mjs",
+    "test:scoring": "node tests/test_scoring.mjs"
   },
   "dependencies": {
     "jszip": "3.10.2"

@@ -1,3 +1,5 @@
+import { businessRules, route, score } from "./scoring.js";
+
 const steps = [
   { id: "routing", label: "Impact routing", code: "01 · ROUTING" },
   { id: "details", label: "Model details", code: "02 · SECTION 1" },
@@ -5,36 +7,6 @@ const steps = [
   { id: "evidence", label: "Evidence package", code: "04 · EVIDENCE" },
   { id: "review", label: "Review & generate", code: "05 · REVIEW" },
 ];
-
-const businessRules = {
-  "Credit and Fraud Risk": {
-    "Account Receivable / Billed Business": ["≤ $1B", "$1B–$10B", "> $10B"],
-    "Adverse Action Volume": ["≤ 1M", "1M–3M", "> 3M"],
-    "Write-off": ["≤ $4M", "$4M–$50M", "> $50M"],
-  },
-  Marketing: {
-    "Gross Contribution Margin": ["≤ $5M", "$5M–$11M", "> $11M"],
-    "Pre-Tax Income": ["≤ $5M", "$5M–$11M", "> $11M"],
-    "Customers / Prospects Scored": ["≤ 1M", "1M–3M", "> 3M"],
-  },
-  "Technology and Servicing": {
-    "Pre-Tax Income": ["≤ $5M", "$5M–$11M", "> $11M"],
-    "Customers / Prospects Scored": ["≤ 1M", "1M–3M", "> 3M"],
-  },
-  "Finance and Treasury": {
-    "Account Receivable / Billed Business": ["≤ $1B", "$1B–$10B", "> $10B"],
-    "Balance Sheet": ["≤ $1B", "$1B–$10B", "> $10B"],
-    "Write-off": ["≤ $4M", "$4M–$50M", "> $50M"],
-  },
-  "Compliance and Financial Crimes": {
-    "Alert Volume": ["≤ 1M", "1M–3M", "> 3M"],
-    "Compliance Review Volume": ["≤ 1M", "1M–3M", "> 3M"],
-  },
-  Other: {
-    "Customers / Prospects Scored": ["≤ 1M", "1M–3M", "> 3M"],
-    "Pre-Tax Income": ["≤ $5M", "$5M–$11M", "> $11M"],
-  },
-};
 
 const form = document.querySelector("#intakeForm");
 const nav = document.querySelector("#stepNav");
@@ -45,6 +17,9 @@ const routingResult = document.querySelector("#routingResult");
 const assessmentResult = document.querySelector("#assessmentResult");
 const scoreBreakdown = document.querySelector("#scoreBreakdown");
 const missingSummary = document.querySelector("#missingSummary");
+const playground = document.querySelector("#scorePlayground");
+const playgroundTrigger = document.querySelector("#playgroundTrigger");
+const playgroundForm = document.querySelector("#playgroundForm");
 const STATIC_MODE = new URLSearchParams(location.search).get("browser") === "1" || !["localhost", "127.0.0.1"].includes(location.hostname);
 let index = 0;
 
@@ -114,28 +89,6 @@ function formData() {
     else data[key] = value;
   });
   return data;
-}
-
-function route(data = formData()) {
-  if (!data.solutionType) return { complete: false, needsAssessment: false, tier: "Pending", reason: "Select a solution type." };
-  if (data.solutionType === "general") return { complete: true, needsAssessment: false, tier: "Low", reason: "General-purpose solutions route directly to Low impact and Section 1." };
-  if (!data.regulatory || !data.purpose) return { complete: false, needsAssessment: false, tier: "Pending", reason: "Complete Questions 2 and 3." };
-  if (data.regulatory === "no" && ["customerExperience", "efficiency"].includes(data.purpose)) return { complete: true, needsAssessment: false, tier: "Low", reason: "This combination routes directly to Low impact and does not require Section 2." };
-  return { complete: true, needsAssessment: true, tier: "Assessment required", reason: "The selected use requires the Section 2 impact assessment." };
-}
-
-function score(data = formData()) {
-  const routed = route(data);
-  if (!routed.needsAssessment) return { complete: routed.complete, tier: routed.complete ? "Low" : "Pending", score: null, earlyExit: routed.complete, components: null, reason: routed.reason };
-  if (["impactThreshold", "reliance", "explainable", "fineTuned", "multiCall", "downstream"].some(name => !data[name])) return { complete: false, tier: "Pending", score: null, earlyExit: false, components: null, reason: "Complete the scored Section 2 questions." };
-  const qn = data.regulatory === "yes" ? 3 : ({ small: 1, medium: 2, large: 3 }[data.impactThreshold] || 0);
-  const qualitative = ({ direct: 3, human: 2, multiple: 1 }[data.reliance] || 0) + (["core", "peopleCompliance"].includes(data.purpose) ? 2 : 1);
-  const ql = qualitative === 5 ? 3 : qualitative === 4 ? 2 : 1;
-  const cx = Number(data.explainable === "no") + Number(data.fineTuned === "yes") + Number(data.multiCall === "yes");
-  const dd = ({ none: 1, some: 2, many: 3 }[data.downstream] || 0);
-  const mic = Number((0.4 * qn + 0.4 * ql + 0.1 * cx + 0.1 * dd).toFixed(2));
-  const tier = mic < 1.2 ? "Low" : mic < 1.8 ? "Medium" : mic < 2.2 ? "High" : "Critical";
-  return { complete: true, tier, score: mic, earlyExit: false, components: { qn, ql, cx, dd }, reason: "MIC calculated with the approved impact formula." };
 }
 
 function activeSteps() { const routed = route(); return routed.complete && !routed.needsAssessment ? steps.filter(step => step.id !== "assessment") : steps; }
@@ -255,6 +208,118 @@ function applyScenario(name) {
   const scenarios = { low: { impactThreshold: "small", reliance: "multiple", explainable: "yes", fineTuned: "no", multiCall: "no", downstream: "none" }, medium: { impactThreshold: "small", reliance: "human", explainable: "no", fineTuned: "yes", multiCall: "no", downstream: "none" }, high: { impactThreshold: "medium", reliance: "direct", explainable: "yes", fineTuned: "no", multiCall: "no", downstream: "none" }, critical: { impactThreshold: "large", reliance: "direct", explainable: "no", fineTuned: "yes", multiCall: "yes", downstream: "many" } };
   setNamed("solutionType", "custom"); setNamed("regulatory", name === "critical" ? "yes" : "no"); setNamed("purpose", "core"); setNamed("endUsers", name === "low" ? "none" : name === "medium" ? "internal" : "customer"); setNamed("businessProcess", "Credit and Fraud Risk"); updateDriverRules(false); setNamed("quantDriver", "Adverse Action Volume"); updateDriverRules(true); for (const [field, value] of Object.entries(scenarios[name])) setNamed(field, value); syncApplicability(); renderDecision(); saveDraft(); render(false);
 }
+
+const playgroundPresets = {
+  general: { solutionType: "general", regulatory: "no", purpose: "efficiency", endUsers: "internal", impactThreshold: "small", reliance: "multiple", explainabilityRisk: false, fineTuned: false, multiCall: false, downstream: "none" },
+  customLow: { solutionType: "custom", regulatory: "no", purpose: "customerExperience", endUsers: "customer", impactThreshold: "small", reliance: "multiple", explainabilityRisk: false, fineTuned: false, multiCall: false, downstream: "none" },
+  scoredLow: { solutionType: "custom", regulatory: "no", purpose: "core", endUsers: "none", impactThreshold: "small", reliance: "multiple", explainabilityRisk: false, fineTuned: false, multiCall: false, downstream: "none" },
+  medium: { solutionType: "custom", regulatory: "no", purpose: "core", endUsers: "internal", impactThreshold: "small", reliance: "human", explainabilityRisk: true, fineTuned: true, multiCall: false, downstream: "none" },
+  high: { solutionType: "custom", regulatory: "no", purpose: "core", endUsers: "customer", impactThreshold: "medium", reliance: "direct", explainabilityRisk: false, fineTuned: false, multiCall: false, downstream: "none" },
+  critical: { solutionType: "custom", regulatory: "yes", purpose: "core", endUsers: "customer", impactThreshold: "large", reliance: "direct", explainabilityRisk: true, fineTuned: true, multiCall: true, downstream: "many" },
+};
+
+function playgroundData() {
+  const values = Object.fromEntries(new FormData(playgroundForm));
+  return {
+    solutionType: values.simSolutionType,
+    regulatory: values.simRegulatory,
+    purpose: values.simPurpose,
+    endUsers: values.simEndUsers,
+    impactThreshold: values.simImpactThreshold,
+    reliance: values.simReliance,
+    explainable: playgroundForm.elements.simExplainabilityRisk.checked ? "no" : "yes",
+    fineTuned: playgroundForm.elements.simFineTuned.checked ? "yes" : "no",
+    multiCall: playgroundForm.elements.simMultiCall.checked ? "yes" : "no",
+    downstream: values.simDownstream,
+  };
+}
+
+function setPlaygroundPreset(name) {
+  const preset = playgroundPresets[name];
+  if (!preset) return;
+  playgroundForm.elements.simSolutionType.value = preset.solutionType;
+  playgroundForm.elements.simRegulatory.value = preset.regulatory;
+  playgroundForm.elements.simPurpose.value = preset.purpose;
+  playgroundForm.elements.simEndUsers.value = preset.endUsers;
+  playgroundForm.elements.simImpactThreshold.value = preset.impactThreshold;
+  playgroundForm.elements.simReliance.value = preset.reliance;
+  playgroundForm.elements.simExplainabilityRisk.checked = preset.explainabilityRisk;
+  playgroundForm.elements.simFineTuned.checked = preset.fineTuned;
+  playgroundForm.elements.simMultiCall.checked = preset.multiCall;
+  playgroundForm.elements.simDownstream.value = preset.downstream;
+  document.querySelectorAll("[data-playground-preset]").forEach(button => button.classList.toggle("active", button.dataset.playgroundPreset === name));
+  renderPlayground();
+}
+
+function renderPlayground() {
+  const data = playgroundData();
+  const routed = route(data);
+  const result = score(data);
+  const earlyExit = result.earlyExit;
+  const routeDependent = playgroundForm.querySelector(".sim-route-dependent");
+  const assessmentControls = document.querySelector("#simAssessmentControls");
+  routeDependent.hidden = data.solutionType === "general";
+  assessmentControls.classList.toggle("is-muted", earlyExit);
+  assessmentControls.setAttribute("aria-disabled", String(earlyExit));
+  document.querySelector("#simRegulatoryNote").hidden = data.regulatory !== "yes" || earlyExit;
+  document.querySelectorAll("[data-playground-preset]").forEach(button => button.classList.remove("active"));
+
+  const tier = result.complete ? result.tier : "Pending";
+  const orbit = document.querySelector("#simTierOrbit");
+  orbit.className = `sim-tier-orbit ${tier.toLowerCase()}`;
+  document.querySelector("#simTier").textContent = tier;
+  document.querySelector("#simResultMode").textContent = earlyExit ? "Routing outcome" : "Scored pathway";
+  document.querySelector("#simSectionOutcome").textContent = earlyExit ? "Section 2 omitted" : "Section 2 required";
+  document.querySelector("#simScore").textContent = earlyExit ? "—" : result.score.toFixed(2);
+  document.querySelector("#simScoreCaption").textContent = earlyExit ? "MIC not calculated" : "calculated MIC";
+  document.querySelector("#simResultCopy").textContent = earlyExit
+    ? `${routed.reason} The model still completes Section 1 and the evidence package.`
+    : `The weighted inputs produce a ${result.score.toFixed(2)} MIC, which falls in the ${result.tier} band.`;
+
+  const scale = document.querySelector("#simScaleWrap");
+  scale.hidden = earlyExit;
+  if (!earlyExit) document.querySelector("#simMarker").style.left = `${Math.max(0, Math.min(100, result.score / 3 * 100))}%`;
+
+  const components = document.querySelector("#simComponents");
+  if (earlyExit) {
+    components.className = "sim-components is-empty";
+    components.innerHTML = `<div class="sim-component"><span>Scoring bypassed</span><strong>Section 1 only</strong><small>No qn, ql, cx, or dd components are calculated on an early-exit route.</small></div>`;
+  } else {
+    components.className = "sim-components";
+    components.innerHTML = [["qn", result.components.qn, "40%", .4], ["ql", result.components.ql, "40%", .4], ["cx", result.components.cx, "10%", .1], ["dd", result.components.dd, "10%", .1]].map(([name, value, weight, factor]) => `<div class="sim-component"><span>${name} · ${weight}</span><strong>${value}</strong><small>adds ${(value * factor).toFixed(2)}</small></div>`).join("");
+  }
+
+  const purposeLabels = { core: "core payments or lending", peopleCompliance: "people, compliance, legal, or regulatory", customerExperience: "customer experience", efficiency: "colleague efficiency" };
+  const trace = data.solutionType === "general" ? [
+    "General-purpose capability selected.",
+    "Regulatory-use and business-purpose questions are bypassed.",
+    "Low Impact route: complete Section 1; Section 2 is omitted.",
+  ] : earlyExit ? [
+    "Customized business solution selected.",
+    `No regulatory-reporting use and ${purposeLabels[data.purpose]} purpose qualify for the early exit.`,
+    "Low Impact route: complete Section 1; Section 2 is omitted.",
+  ] : [
+    "Customized solution does not qualify for an early exit.",
+    data.regulatory === "yes" ? "Regulatory-reporting use forces qn to 3." : `The ${purposeLabels[data.purpose]} purpose proceeds to the weighted assessment.`,
+    `qn ${result.components.qn} + ql ${result.components.ql} + cx ${result.components.cx} + dd ${result.components.dd} produces ${result.score.toFixed(2)} (${result.tier}).`,
+  ];
+  document.querySelector("#simTrace").innerHTML = trace.map(item => `<li>${esc(item)}</li>`).join("");
+  document.querySelector("#simApplyStatus").textContent = "The playground is isolated from your saved draft until you use this button.";
+}
+
+function applyPlaygroundToIntake() {
+  const data = playgroundData();
+  setNamed("solutionType", data.solutionType);
+  if (data.solutionType === "custom") { setNamed("regulatory", data.regulatory); setNamed("purpose", data.purpose); }
+  if (route(data).needsAssessment) {
+    setNamed("endUsers", data.endUsers); setNamed("impactThreshold", data.impactThreshold); setNamed("reliance", data.reliance); setNamed("explainable", data.explainable); setNamed("fineTuned", data.fineTuned); setNamed("multiCall", data.multiCall); setNamed("downstream", data.downstream);
+    setNamed("businessProcess", "Credit and Fraud Risk"); updateDriverRules(false); setNamed("quantDriver", "Adverse Action Volume"); updateDriverRules(true);
+  }
+  syncApplicability(); renderDecision(); saveDraft(); index = 0; render();
+  document.querySelector("#simApplyStatus").textContent = "Scenario copied to the intake routing and assessment fields.";
+  setTimeout(() => playground.close(), 450);
+}
+
 async function payloadWithFiles() {
   const data = formData(), files = [...document.querySelector("#supportingFiles").files];
   if (files.some(file => file.size > 8_000_000) || files.reduce((sum, file) => sum + file.size, 0) > 20_000_000) throw new Error("Supporting files must be 8 MB or less each and 20 MB or less in total.");
@@ -276,6 +341,14 @@ document.querySelector("#promptCalls").addEventListener("click", event => { cons
 nextBtn.addEventListener("click", () => { const current = activeSteps()[index], left = missingFields().filter(name => stepForField[name] === current.id).length; if (left) validationMessage.textContent = `${left} required item${left === 1 ? "" : "s"} remain here; you can return later.`; index = Math.min(index + 1, activeSteps().length - 1); render(); });
 backBtn.addEventListener("click", () => { index = Math.max(0, index - 1); render(); });
 document.querySelectorAll("[data-scenario]").forEach(button => button.addEventListener("click", () => applyScenario(button.dataset.scenario)));
+playgroundTrigger.addEventListener("click", () => { playground.showModal(); playgroundTrigger.setAttribute("aria-expanded", "true"); renderPlayground(); document.querySelector("#playgroundClose").focus(); });
+document.querySelector("#playgroundClose").addEventListener("click", () => playground.close());
+playground.addEventListener("close", () => { playgroundTrigger.setAttribute("aria-expanded", "false"); playgroundTrigger.focus(); });
+playground.addEventListener("click", event => { if (event.target === playground) playground.close(); });
+playgroundForm.addEventListener("input", renderPlayground);
+playgroundForm.addEventListener("change", renderPlayground);
+document.querySelectorAll("[data-playground-preset]").forEach(button => button.addEventListener("click", () => setPlaygroundPreset(button.dataset.playgroundPreset)));
+document.querySelector("#applyPlayground").addEventListener("click", applyPlaygroundToIntake);
 missingSummary.addEventListener("click", event => { const button = event.target.closest("[data-jump]"); if (!button) return; const target = activeSteps().findIndex(step => step.id === button.dataset.jump); if (target >= 0) { index = target; render(); } });
 document.querySelector("#resetBtn").addEventListener("click", () => { if (!confirm("Reset the locally saved draft?")) return; form.reset(); document.querySelector("#metrics").innerHTML = ""; document.querySelector("#promptCalls").innerHTML = ""; addMetric(); addPromptCall(); localStorage.removeItem("mrmg-first-line-draft"); index = 0; updateDriverRules(false); syncApplicability(); renderDecision(); render(); });
 document.querySelector("#generateBtn").addEventListener("click", async () => {
@@ -289,4 +362,4 @@ document.querySelector("#generateBtn").addEventListener("click", async () => {
 });
 
 if (STATIC_MODE) { const button = document.querySelector("#generateBtn"); button.querySelector("span").textContent = "Generate submission package"; button.querySelector("small").textContent = "Word + Excel + email + JSON + ZIP · stays on this device"; }
-restoreDraft(); updateDriverRules(true); syncApplicability(); renderDecision(); render(false);
+restoreDraft(); updateDriverRules(true); syncApplicability(); renderDecision(); render(false); setPlaygroundPreset("high");

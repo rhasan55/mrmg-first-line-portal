@@ -23,7 +23,7 @@ class Handler(BaseHTTPRequestHandler):
             if GENERATED.resolve() not in candidate.parents: self.send_error(403); return
             self._file(candidate); return
         if parsed.path == "/": self._file(ROOT / "static/index.html"); return
-        if parsed.path in {"/styles.css", "/app.js"}: self._file(ROOT / "static" / parsed.path.removeprefix("/")); return
+        if parsed.path in {"/styles.css", "/app.js", "/scoring.js"}: self._file(ROOT / "static" / parsed.path.removeprefix("/")); return
         if parsed.path.startswith("/static/"):
             candidate = (ROOT / "static" / Path(unquote(parsed.path.removeprefix("/static/")))).resolve()
             if (ROOT / "static").resolve() not in candidate.parents: self.send_error(403); return

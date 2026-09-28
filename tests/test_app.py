@@ -170,6 +170,8 @@ class HttpTests(unittest.TestCase):
         base = f"http://127.0.0.1:{self.server.server_port}"
         with urllib.request.urlopen(base + "/api/health") as response: payload = json.loads(response.read())
         self.assertEqual(payload["status"], "ok")
+        with urllib.request.urlopen(base + "/scoring.js") as response: scoring_source = response.read().decode()
+        self.assertIn("export function score", scoring_source)
         request = urllib.request.Request(base + "/api/generate", data=json.dumps(sample("medium")).encode(), headers={"Content-Type": "application/json"}, method="POST")
         with urllib.request.urlopen(request, timeout=30) as response: generated = json.loads(response.read())
         self.assertIn("MIC 1.50", generated["summary"])

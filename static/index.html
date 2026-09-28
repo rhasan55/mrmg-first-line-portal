@@ -128,6 +128,93 @@
       </section>
     </main>
   </div>
+
+  <button class="playground-tab" id="playgroundTrigger" type="button" aria-controls="scorePlayground" aria-expanded="false">
+    <span class="playground-tab-icon" aria-hidden="true">↗</span>
+    <span><strong>Score Playground</strong><small>Explore every pathway</small></span>
+  </button>
+
+  <dialog class="playground-sheet" id="scorePlayground" aria-labelledby="playgroundTitle">
+    <div class="playground-shell">
+      <header class="playground-head">
+        <div>
+          <p class="overline">What-if lab · does not change your draft</p>
+          <h2 id="playgroundTitle">See what moves a model’s tier.</h2>
+          <p>Explore both Low-impact early exits and every scored MIC outcome. Choose a preset or change one driver at a time.</p>
+        </div>
+        <button class="playground-close" id="playgroundClose" type="button" aria-label="Close Score Playground">×</button>
+      </header>
+
+      <div class="playground-presets" aria-label="Example pathways">
+        <span>Jump to</span>
+        <button type="button" data-playground-preset="general">General-purpose Low</button>
+        <button type="button" data-playground-preset="customLow">Customized Low</button>
+        <button type="button" data-playground-preset="scoredLow">Scored Low</button>
+        <button type="button" data-playground-preset="medium">Medium</button>
+        <button type="button" data-playground-preset="high">High</button>
+        <button type="button" data-playground-preset="critical">Critical</button>
+      </div>
+
+      <div class="playground-grid">
+        <form class="playground-controls" id="playgroundForm">
+          <section class="sim-section">
+            <div class="sim-section-title"><span>01</span><strong>Routing gate</strong></div>
+            <label>Solution type<select name="simSolutionType"><option value="general">General-purpose capability</option><option value="custom" selected>Customized business solution</option></select></label>
+            <div class="sim-route-dependent">
+              <label>Regulatory-reporting input<select name="simRegulatory"><option value="no" selected>No</option><option value="yes">Yes</option></select></label>
+              <label>Purpose and business usage<select name="simPurpose"><option value="core" selected>Core payments or lending decision</option><option value="peopleCompliance">People, compliance, legal, or regulatory</option><option value="customerExperience">Customer experience enhancement</option><option value="efficiency">Colleague process efficiency</option></select></label>
+            </div>
+          </section>
+
+          <section class="sim-section" id="simAssessmentControls">
+            <div class="sim-section-title"><span>02</span><strong>Scored assessment</strong></div>
+            <label>Intended end users <span class="sim-not-scored">documented, not scored</span><select name="simEndUsers"><option value="none">Foundational / no direct end users</option><option value="internal">Internal colleagues</option><option value="customer" selected>Customer-facing</option></select></label>
+            <label>Business impact band · qn <span class="sim-weight">40%</span><select name="simImpactThreshold"><option value="small">Small · qn 1</option><option value="medium" selected>Medium · qn 2</option><option value="large">Large · qn 3</option></select></label>
+            <p class="sim-rule-note" id="simRegulatoryNote" hidden>Regulatory-reporting use fixes qn at 3, regardless of the selected impact band.</p>
+            <label>Business importance (reliance + purpose) · ql <span class="sim-weight">40%</span><select name="simReliance"><option value="multiple">Multiple reviews / recommendation only</option><option value="human">Human review or fallback</option><option value="direct" selected>Direct reliance / automated decision</option></select></label>
+            <div class="sim-toggle-grid" aria-label="Complexity flags">
+              <label><input type="checkbox" name="simExplainabilityRisk"><span><strong>Explainability not feasible</strong><small>adds 1 to cx</small></span></label>
+              <label><input type="checkbox" name="simFineTuned"><span><strong>Foundation model fine-tuned</strong><small>adds 1 to cx</small></span></label>
+              <label><input type="checkbox" name="simMultiCall"><span><strong>More than 2 sequential calls</strong><small>adds 1 to cx</small></span></label>
+            </div>
+            <label>Downstream dependencies · dd <span class="sim-weight">10%</span><select name="simDownstream"><option value="none" selected>0–1 dependencies · dd 1</option><option value="some">2–5 dependencies · dd 2</option><option value="many">6+ dependencies · dd 3</option></select></label>
+          </section>
+        </form>
+
+        <section class="playground-result" aria-live="polite">
+          <div class="sim-result-topline"><span id="simResultMode">Scored pathway</span><span id="simSectionOutcome">Section 2 required</span></div>
+          <div class="sim-score-lockup">
+            <div class="sim-tier-orbit" id="simTierOrbit"><span id="simTier">High</span></div>
+            <div><span class="sim-score-label">Model Impact Category</span><strong id="simScore">2.10</strong><small id="simScoreCaption">calculated MIC</small></div>
+          </div>
+          <p class="sim-result-copy" id="simResultCopy"></p>
+
+          <div class="sim-scale-wrap" id="simScaleWrap">
+            <div class="sim-scale-labels"><span>0.00</span><span>1.20</span><span>1.80</span><span>2.20</span><span>3.00</span></div>
+            <div class="sim-scale" aria-label="MIC tier scale"><i class="sim-marker" id="simMarker"></i><span class="scale-low"></span><span class="scale-medium"></span><span class="scale-high"></span><span class="scale-critical"></span></div>
+            <div class="sim-band-names"><span>Low</span><span>Medium</span><span>High</span><span>Critical</span></div>
+          </div>
+
+          <div class="sim-components" id="simComponents"></div>
+
+          <div class="sim-pathway">
+            <p class="overline">Decision trace</p>
+            <ol id="simTrace"></ol>
+          </div>
+
+          <div class="sim-actions">
+            <button class="primary" id="applyPlayground" type="button">Use this scenario in intake</button>
+            <p id="simApplyStatus">The playground is isolated from your saved draft until you use this button.</p>
+          </div>
+        </section>
+      </div>
+
+      <footer class="playground-foot">
+        <strong>How to read it</strong>
+        <p>MIC = 0.4 × qn + 0.4 × ql + 0.1 × cx + 0.1 × dd. Low &lt; 1.2; Medium 1.2–&lt;1.8; High 1.8–&lt;2.2; Critical ≥ 2.2. This is a planning aid; the completed submission remains the record reviewed by MRMG.</p>
+      </footer>
+    </div>
+  </dialog>
   <script type="module" src="app.js"></script>
 </body>
 </html>

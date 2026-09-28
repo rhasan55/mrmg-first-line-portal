@@ -12,6 +12,7 @@ A step-by-step GenAI model-risk intake that implements the approved questionnair
 - Business-process choices constrain the available quantitative drivers and display the matching annual Small, Medium, and Large thresholds.
 - “More than 2 sequential LLM calls” requires at least three fully documented prompt-call records.
 - The first outcome-analysis metric is required; users can add any number of additional metrics. Every added metric requires a value, rationale, and Green/Amber/Red thresholds.
+- A bottom-docked Score Playground simulates both Low-impact early exits and every scored tier without changing the saved intake. Users can optionally copy a scenario into the real routing and Section 2 fields.
 
 ## Local package generation
 
@@ -63,4 +64,5 @@ The suite covers routing, MIC bands and exact boundaries, process/driver validat
 
 ```bash
 pnpm test:browser-generator
+pnpm test:scoring
 ```
