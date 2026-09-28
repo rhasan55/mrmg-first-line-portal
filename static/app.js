@@ -247,8 +247,8 @@ function setPlaygroundPreset(name) {
   playgroundForm.elements.simFineTuned.checked = preset.fineTuned;
   playgroundForm.elements.simMultiCall.checked = preset.multiCall;
   playgroundForm.elements.simDownstream.value = preset.downstream;
-  document.querySelectorAll("[data-playground-preset]").forEach(button => button.classList.toggle("active", button.dataset.playgroundPreset === name));
   renderPlayground();
+  document.querySelectorAll("[data-playground-preset]").forEach(button => button.classList.toggle("active", button.dataset.playgroundPreset === name));
 }
 
 function renderPlayground() {
@@ -272,6 +272,8 @@ function renderPlayground() {
   document.querySelector("#simSectionOutcome").textContent = earlyExit ? "Section 2 omitted" : "Section 2 required";
   document.querySelector("#simScore").textContent = earlyExit ? "—" : result.score.toFixed(2);
   document.querySelector("#simScoreCaption").textContent = earlyExit ? "MIC not calculated" : "calculated MIC";
+  document.querySelector("#simMobileTier").textContent = tier;
+  document.querySelector("#simMobileScore").textContent = earlyExit ? "Section 1 only" : result.score.toFixed(2);
   document.querySelector("#simResultCopy").textContent = earlyExit
     ? `${routed.reason} The model still completes Section 1 and the evidence package.`
     : `The weighted inputs produce a ${result.score.toFixed(2)} MIC, which falls in the ${result.tier} band.`;
@@ -341,9 +343,15 @@ document.querySelector("#promptCalls").addEventListener("click", event => { cons
 nextBtn.addEventListener("click", () => { const current = activeSteps()[index], left = missingFields().filter(name => stepForField[name] === current.id).length; if (left) validationMessage.textContent = `${left} required item${left === 1 ? "" : "s"} remain here; you can return later.`; index = Math.min(index + 1, activeSteps().length - 1); render(); });
 backBtn.addEventListener("click", () => { index = Math.max(0, index - 1); render(); });
 document.querySelectorAll("[data-scenario]").forEach(button => button.addEventListener("click", () => applyScenario(button.dataset.scenario)));
-playgroundTrigger.addEventListener("click", () => { playground.showModal(); playgroundTrigger.setAttribute("aria-expanded", "true"); renderPlayground(); document.querySelector("#playgroundClose").focus(); });
+function openPlayground() {
+  if (!playground.open) playground.showModal();
+  playgroundTrigger.setAttribute("aria-expanded", "true"); renderPlayground();
+  if (location.hash !== "#score-playground") history.replaceState(null, "", `${location.pathname}${location.search}#score-playground`);
+  document.querySelector("#playgroundClose").focus();
+}
+playgroundTrigger.addEventListener("click", openPlayground);
 document.querySelector("#playgroundClose").addEventListener("click", () => playground.close());
-playground.addEventListener("close", () => { playgroundTrigger.setAttribute("aria-expanded", "false"); playgroundTrigger.focus(); });
+playground.addEventListener("close", () => { playgroundTrigger.setAttribute("aria-expanded", "false"); if (location.hash === "#score-playground") history.replaceState(null, "", `${location.pathname}${location.search}`); playgroundTrigger.focus(); });
 playground.addEventListener("click", event => { if (event.target === playground) playground.close(); });
 playgroundForm.addEventListener("input", renderPlayground);
 playgroundForm.addEventListener("change", renderPlayground);
@@ -362,4 +370,4 @@ document.querySelector("#generateBtn").addEventListener("click", async () => {
 });
 
 if (STATIC_MODE) { const button = document.querySelector("#generateBtn"); button.querySelector("span").textContent = "Generate submission package"; button.querySelector("small").textContent = "Word + Excel + email + JSON + ZIP · stays on this device"; }
-restoreDraft(); updateDriverRules(true); syncApplicability(); renderDecision(); render(false); setPlaygroundPreset("high");
+restoreDraft(); updateDriverRules(true); syncApplicability(); renderDecision(); render(false); setPlaygroundPreset("high"); if (location.hash === "#score-playground") openPlayground();
