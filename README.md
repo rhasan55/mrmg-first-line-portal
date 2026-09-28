@@ -1,0 +1,54 @@
+# MRMG First Line Intake
+
+A step-by-step GenAI model-risk intake that implements the routing and scoring rules recovered from the supplied questionnaire and VBA notes.
+
+## What the portal implements
+
+- Q1 general-purpose solutions route directly to Low Impact and omit Section 2.
+- Customized solutions with no regulatory-reporting use and a customer-experience or efficiency purpose also route directly to Low Impact.
+- All other cases use `MIC = 0.4 × qn + 0.4 × ql + 0.1 × cx + 0.1 × dd`.
+- Bands are Low `< 1.2`, Medium `1.2–<1.8`, High `1.8–<2.2`, and Critical `≥ 2.2`.
+- Regulatory-reporting use forces the quantitative component to 3.
+- Business-process choices constrain the available quantitative drivers and display the matching annual Small, Medium, and Large thresholds.
+- “More than 2 sequential LLM calls” requires at least three fully documented prompt-call records.
+- Both outcome-analysis metrics require Green, Amber, and Red monitoring thresholds.
+
+## Local package generation
+
+Run:
+
+```bash
+python3 server.py
+```
+
+Then open <http://127.0.0.1:8765>.
+
+Local mode creates a ZIP containing:
+
+- the completed questionnaire (`.docx`, or `.docm` when an original macro-enabled template is supplied);
+- `Outcome Analysis.xlsx`;
+- `Prompt Submission Template.docx`;
+- `Ongoing Monitoring Plan.docx`;
+- `B70+ Attestation Template.docx`;
+- `submission.json`; and
+- optional supporting files in `Supporting Documents/`.
+
+## GitHub Pages
+
+The Pages deployment is intentionally browser-only. It supports the complete intake, routing, scoring, validation, local draft storage, and validated JSON export. GitHub Pages cannot run the private Python/Node document generator, so Word/Excel ZIP generation remains available through the local service.
+
+The workflow in `.github/workflows/pages.yml` publishes only `static/`. It does not deploy source scans, documents, spreadsheets, PDFs, images, user submissions, or generated packages.
+
+## Original macro-enabled template
+
+The scanned Notes attachment does not contain the original Word package or its `vbaProject.bin`. To preserve the original macros, place the source file locally at `templates/source.docm`. That file is ignored by Git and will never be pushed. The generator preserves its package parts, appends the completed response, and emits a `.docm`. Without it, the generator emits a standards-compliant `.docx`.
+
+The generated supporting files are separate usable files in the ZIP. True clickable OLE embedding requires the original Word template and a Word-compatible authoring environment; the portal does not make a false embedding claim.
+
+## Tests
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+The suite covers routing, MIC bands and exact boundaries, process/driver validation, prompt-call count rules, Section 2 inclusion/omission, Word and Excel generation, B70+ Word output, ZIP integrity, optional DOCM macro preservation, and HTTP generation/download.

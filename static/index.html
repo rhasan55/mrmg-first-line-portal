@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MRMG · First Line Intake</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail">
+      <div class="brand"><div class="brand-mark">M</div><div><strong>MRMG</strong><span>Model Risk</span></div></div>
+      <p class="eyebrow">First line workspace</p>
+      <h1>GenAI intake</h1>
+      <p class="rail-copy">A guided submission that follows the scanned questionnaire and its VBA routing rules.</p>
+      <nav id="stepNav" aria-label="Form sections"></nav>
+      <div class="rail-foot"><span class="status-dot"></span><span>Draft saves locally · move freely</span></div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div><span class="kicker">MRMG / MODEL STORE</span><h2 id="pageTitle">Impact routing</h2></div>
+        <div class="top-actions"><button class="ghost" id="resetBtn" type="button">Reset draft</button><div class="progress-ring" id="progressRing" aria-label="Completion"><span>0%</span></div></div>
+      </header>
+
+      <section class="workspace">
+        <div class="context-strip"><span id="stepLabel">01 · ROUTING</span><span id="autosave">Saved locally</span></div>
+        <form id="intakeForm" novalidate>
+          <div class="required-note"><span aria-hidden="true">*</span> All visible fields are required. You can visit any section before completing it.</div>
+
+          <section class="step active" data-step="routing">
+            <div class="intro"><p class="overline">Impact triage</p><h3>Start with how the model is used.</h3><p>Choose the single best answer. The decision card mirrors <code>Validate_FormA</code> from the supplied VBA rules.</p></div>
+            <fieldset data-required="solutionType"><legend>1. Which GenAI solution best fits this use case? <span class="req">*</span></legend>
+              <label class="choice"><input type="radio" name="solutionType" value="general"><span><strong>General-purpose capability</strong><small>ChatGPT, Office Copilot, coding accelerators, or a tool without a specific business purpose.</small></span></label>
+              <label class="choice"><input type="radio" name="solutionType" value="custom"><span><strong>Customized business solution</strong><small>A specific use such as task generation, control recommendations, or service support.</small></span></label>
+            </fieldset>
+            <fieldset data-required="regulatory"><legend>2. Is output used as input to regulatory reporting? <span class="req">*</span></legend>
+              <p class="hint">Examples: CCAR, CECL, SAR filings, stress testing, capital, or liquidity reporting.</p>
+              <div class="choice-row"><label class="choice compact"><input type="radio" name="regulatory" value="yes"><span><strong>Yes</strong></span></label><label class="choice compact"><input type="radio" name="regulatory" value="no"><span><strong>No</strong></span></label></div>
+            </fieldset>
+            <fieldset data-required="purpose"><legend>3. What is the purpose and business usage? <span class="req">*</span></legend>
+              <label class="choice"><input type="radio" name="purpose" value="core"><span><strong>Core payments or lending decision</strong><small>Credit risk, targeting, response, or collections decisions.</small></span></label>
+              <label class="choice"><input type="radio" name="purpose" value="peopleCompliance"><span><strong>People, compliance, legal, or regulatory assessment</strong><small>Compensation, employment, misconduct, compliance checks, or similar assessments.</small></span></label>
+              <label class="choice"><input type="radio" name="purpose" value="customerExperience"><span><strong>Customer experience enhancement</strong><small>No direct effect on access to credit or ability to make payments.</small></span></label>
+              <label class="choice"><input type="radio" name="purpose" value="efficiency"><span><strong>Colleague process efficiency</strong><small>Drafting, summarization, document creation, or code suggestions.</small></span></label>
+            </fieldset>
+            <div class="decision-card" id="routingResult" hidden></div>
+          </section>
+
+          <section class="step" data-step="details">
+            <div class="intro"><p class="overline">Section 1</p><h3>Describe the model and its intended use.</h3><p>This content is placed into the completed questionnaire using the scan's wording and spacing.</p></div>
+            <div class="grid two">
+              <label>Use case name <span class="req">*</span><input name="useCaseName" required placeholder="e.g., Enterprise Knowledge Assistant"></label>
+              <label>Model owner <span class="req">*</span><input name="modelOwner" required placeholder="Name or team"></label>
+              <label>Business unit <span class="req">*</span><input name="businessUnit" required placeholder="Business unit"></label>
+              <label>Planned implementation date <span class="req">*</span><input type="date" name="implementationDate" required></label>
+            </div>
+            <fieldset data-required="markets"><legend>Markets at go-live <span class="req">*</span></legend>
+              <div class="choice-row"><label class="tick"><input type="checkbox" name="markets" value="US"> US</label><label class="tick"><input type="checkbox" name="markets" value="EU"> EU</label><label class="tick"><input type="checkbox" name="markets" value="Other"> Other</label></div>
+              <label class="subfield" id="otherMarketLabel">Other market <span class="conditional">required when Other is selected</span><input name="otherMarket" placeholder="Specify market"></label>
+            </fieldset>
+            <label>Use case overview <span class="req">*</span><textarea name="overview" required rows="5" placeholder="Purpose, workflow, users, and decision supported"></textarea></label>
+            <div class="grid two"><label>Model inputs <span class="req">*</span><textarea name="modelInputs" required rows="4" placeholder="Queries, transcripts, documents, data fields…"></textarea></label><label>Generated outputs <span class="req">*</span><textarea name="generatedOutputs" required rows="4" placeholder="Responses, summaries, classifications…"></textarea></label></div>
+            <div class="grid two"><label>Model name <span class="req">*</span><input name="modelName" required placeholder="e.g., OpenAI GPT"></label><label>Model version <span class="req">*</span><input name="modelVersion" required placeholder="e.g., GPT 5.1"></label></div>
+            <fieldset data-required="hosting"><legend>Hosting location <span class="req">*</span></legend>
+              <label class="choice"><input type="radio" name="hosting" value="axp"><span><strong>AXP-governed platform</strong><small>Model inference runs within an AXP-governed platform, whether the underlying model is open-source or commercial.</small></span></label>
+              <label class="choice"><input type="radio" name="hosting" value="thirdParty"><span><strong>Third-party governed platform</strong><small>Data handling is governed outside AXP.</small></span></label>
+            </fieldset>
+            <fieldset data-required="agentic"><legend>Is this an Agentic AI use case? <span class="req">*</span></legend><div class="choice-row"><label class="choice compact"><input type="radio" name="agentic" value="yes"><span><strong>Yes</strong></span></label><label class="choice compact"><input type="radio" name="agentic" value="no"><span><strong>No</strong></span></label></div><p class="hint">Agentic use cases can plan, reason, use tools, and execute multi-step tasks with limited human direction.</p></fieldset>
+          </section>
+
+          <section class="step" data-step="assessment">
+            <div class="intro"><p class="overline">Section 2 · VBA-aligned simulator</p><h3>Assess impact, importance, complexity, and interdependency.</h3><p>This section is removed for the VBA early-exit route. For assessed cases, the simulator uses the recovered <code>Validate_FormB</code> formula and exact band boundaries.</p></div>
+            <div class="scenario-lab" aria-labelledby="scenarioTitle">
+              <div><p class="overline" id="scenarioTitle">Scenario lab</p><strong>Try a complete score profile</strong><p>Presets fill only routing and Section 2. You can change any answer afterward.</p></div>
+              <div class="scenario-buttons"><button type="button" data-scenario="low">Low</button><button type="button" data-scenario="medium">Medium</button><button type="button" data-scenario="high">High</button><button type="button" data-scenario="critical">Critical</button></div>
+            </div>
+            <fieldset data-required="endUsers"><legend>Who are the intended end users? <span class="req">*</span></legend><label class="choice"><input type="radio" name="endUsers" value="none"><span><strong>No direct end users / foundational</strong><small>Foundational capability or internal decision support.</small></span></label><label class="choice"><input type="radio" name="endUsers" value="customer"><span><strong>Customer-facing</strong><small>Direct customer use or directly applied to customer-impacting decisions.</small></span></label><label class="choice"><input type="radio" name="endUsers" value="internal"><span><strong>Internal colleagues</strong><small>Used by colleagues in an internal workflow.</small></span></label></fieldset>
+            <div class="grid two"><label>Business process <span class="req">*</span><select name="businessProcess" required><option value="">Select</option><option>Credit and Fraud Risk</option><option>Marketing</option><option>Technology and Servicing</option><option>Finance and Treasury</option><option>Compliance and Financial Crimes</option><option>Other</option></select></label><label>Quantitative driver <span class="req">*</span><select name="quantDriver" required><option value="">Choose a business process first</option></select></label></div>
+            <fieldset data-required="impactThreshold"><legend>A · Business Impact — annual threshold <span class="req">*</span></legend><div class="choice-row triple"><label class="choice compact"><input type="radio" name="impactThreshold" value="small"><span><strong>Small</strong><small id="smallBand"><code>qn = 1</code></small></span></label><label class="choice compact"><input type="radio" name="impactThreshold" value="medium"><span><strong>Medium</strong><small id="mediumBand"><code>qn = 2</code></small></span></label><label class="choice compact"><input type="radio" name="impactThreshold" value="large"><span><strong>Large</strong><small id="largeBand"><code>qn = 3</code></small></span></label></div><p class="hint">The displayed ranges come from the selected process/driver rule. Regulatory-reporting input forces <code>qn = 3</code>, matching the macro.</p></fieldset>
+            <fieldset data-required="reliance"><legend>B · Business Importance — how is model output used? <span class="req">*</span></legend><label class="choice"><input type="radio" name="reliance" value="direct"><span><strong>Direct use</strong><small>Automatically drives a decision or action.</small></span></label><label class="choice"><input type="radio" name="reliance" value="human"><span><strong>Human review or fallback</strong><small>An SME reviews the output, or a customer/colleague has a fallback.</small></span></label><label class="choice"><input type="radio" name="reliance" value="multiple"><span><strong>Multiple reviews / recommendation only</strong><small>Multiple reviews occur or the result can be bypassed.</small></span></label></fieldset>
+            <div class="grid two complexity-grid">
+              <fieldset data-required="explainable"><legend>C1 · Feasible explainability techniques? <span class="req">*</span></legend><label class="tick"><input type="radio" name="explainable" value="yes"> Yes</label><label class="tick"><input type="radio" name="explainable" value="no"> No</label></fieldset>
+              <fieldset data-required="fineTuned"><legend>C2 · Foundational model fine-tuned? <span class="req">*</span></legend><label class="tick"><input type="radio" name="fineTuned" value="yes"> Yes</label><label class="tick"><input type="radio" name="fineTuned" value="no"> No</label></fieldset>
+              <fieldset data-required="multiCall"><legend>C3 · More than 2 sequential LLM calls? <span class="req">*</span></legend><label class="tick"><input type="radio" name="multiCall" value="yes"> Yes</label><label class="tick"><input type="radio" name="multiCall" value="no"> No</label></fieldset>
+              <fieldset data-required="downstream"><legend>D · Downstream interdependency <span class="req">*</span></legend><label class="tick"><input type="radio" name="downstream" value="none"> 0–1</label><label class="tick"><input type="radio" name="downstream" value="some"> 2–5</label><label class="tick"><input type="radio" name="downstream" value="many"> 6+</label></fieldset>
+            </div>
+            <div class="decision-card" id="assessmentResult"></div>
+            <div class="score-breakdown" id="scoreBreakdown" aria-live="polite"></div>
+            <div class="bands"><span><i class="low"></i>Low &lt; 1.2</span><span><i class="medium"></i>Medium 1.2–&lt;1.8</span><span><i class="high"></i>High 1.8–&lt;2.2</span><span><i class="critical"></i>Critical ≥ 2.2</span></div>
+          </section>
+
+          <section class="step" data-step="evidence">
+            <div class="intro"><p class="overline">Evidence package</p><h3>Define validation, monitoring, and attestation.</h3><p>Each generated supporting file is saved separately in the submission ZIP.</p></div>
+            <div class="grid two">
+              <label>Sample size <span class="req">*</span><input type="number" min="1" name="sampleSize" required placeholder="e.g., 1447"></label>
+              <label>Performance metric 1 <span class="req">*</span><input name="metric1" required placeholder="e.g., Accuracy"></label>
+              <label>Metric 1 value <span class="req">*</span><input name="metric1Value" required placeholder="e.g., 82%"></label>
+              <label>Metric 1 rationale <span class="req">*</span><input name="metric1Rationale" required placeholder="Why this metric fits the use case"></label>
+              <label>Performance metric 2 <span class="req">*</span><input name="metric2" required placeholder="e.g., Hallucination rate"></label>
+              <label>Metric 2 value <span class="req">*</span><input name="metric2Value" required placeholder="e.g., 3%"></label>
+            </div>
+            <label>Metric 2 rationale <span class="req">*</span><textarea name="metric2Rationale" rows="3" required placeholder="Why this second metric fits the use case"></textarea></label>
+            <div class="prompt-header"><div><strong>LLM calls</strong><p class="hint">Document every call. Selecting “more than 2” in Section 2 requires at least three completed call records.</p></div><button type="button" class="ghost" id="addPromptCall">Add LLM call</button></div>
+            <div id="promptCalls"></div>
+            <div class="grid two">
+              <label>Metric 1 green threshold <span class="req">*</span><input name="metric1Green" required placeholder="e.g., Accuracy ≥ 80%"></label><label>Metric 1 amber threshold <span class="req">*</span><input name="metric1Amber" required placeholder="e.g., 65% ≤ Accuracy &lt; 80%"></label><label>Metric 1 red threshold <span class="req">*</span><input name="metric1Red" required placeholder="e.g., Accuracy &lt; 65%"></label>
+              <label>Metric 2 green threshold <span class="req">*</span><input name="metric2Green" required placeholder="e.g., Hallucination rate ≤ 3%"></label><label>Metric 2 amber threshold <span class="req">*</span><input name="metric2Amber" required placeholder="e.g., 3% &lt; rate ≤ 5%"></label><label>Metric 2 red threshold <span class="req">*</span><input name="metric2Red" required placeholder="e.g., Hallucination rate &gt; 5%"></label>
+              <label>Monitoring frequency <span class="req">*</span><select name="monitoringFrequency" required><option>Annual</option><option>Quarterly</option><option>Monthly</option></select></label>
+            </div>
+            <label>Optional supporting documents<input id="supportingFiles" type="file" multiple><span class="hint">Local generation adds selected files to a Supporting Documents folder inside the ZIP. Files are never saved in the browser draft.</span></label>
+            <fieldset data-required-all="attestation"><legend>B70+ business attestation checklist <span class="req">*</span></legend>
+              <label class="tick wide"><input type="checkbox" name="attestation" value="accurate"> Information in the model documentation is accurate</label>
+              <label class="tick wide"><input type="checkbox" name="attestation" value="eu"> EU use is not prohibited or high-risk, or EU is not applicable</label>
+              <label class="tick wide"><input type="checkbox" name="attestation" value="controls"> Mandatory controls have been tested and will be implemented</label>
+              <label class="tick wide"><input type="checkbox" name="attestation" value="risk"> Residual risk is understood, accepted, and within appetite</label>
+              <label class="tick wide"><input type="checkbox" name="attestation" value="scope"> Use will remain within the documented intended scope</label>
+            </fieldset>
+            <div class="grid two b70-fields">
+              <label>B70+ business owner <span class="req">*</span><input name="businessOwnerName" required placeholder="Attester name"></label>
+              <label>B70+ title <span class="req">*</span><input name="businessOwnerTitle" required placeholder="Business title"></label>
+            </div>
+            <p class="hint">The package creates the B70+ attestation as a Word document, matching the scanned attachment type.</p>
+          </section>
+
+          <section class="step" data-step="review">
+            <div class="intro"><p class="overline">Review</p><h3>Generate the complete submission package.</h3><p>Required fields are enforced here, after allowing free movement among sections.</p></div>
+            <div id="reviewSummary" class="review-grid"></div>
+            <div id="missingSummary" class="missing-summary" hidden></div>
+            <div class="generation-note"><strong>Output integrity</strong><p>Local mode creates a ZIP containing the primary Word questionnaire, Outcome Analysis workbook, Prompt Submission document, Ongoing Monitoring Plan, B70+ Word attestation, submission JSON, and optional supporting files. Low-impact routes omit Section 2 entirely. GitHub Pages exports validated JSON because static hosting cannot run the private document generator.</p></div>
+            <button type="button" class="generate" id="generateBtn"><span>Generate submission package</span><small>Word + Excel + Word templates + JSON + ZIP</small></button>
+            <div id="generationStatus" class="generation-status" role="status"></div>
+          </section>
+
+          <footer class="form-actions"><button type="button" class="ghost" id="backBtn">Back</button><span id="validationMessage" aria-live="polite"></span><button type="button" class="primary" id="nextBtn">Continue</button></footer>
+        </form>
+      </section>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

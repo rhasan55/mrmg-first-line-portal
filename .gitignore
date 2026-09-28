@@ -1,0 +1,41 @@
+# Never commit source or generated business documents/media.
+*.doc
+*.docx
+*.docm
+*.dot
+*.dotx
+*.dotm
+*.xls
+*.xlsx
+*.xlsm
+*.xlsb
+*.pdf
+*.eml
+*.zip
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.tif
+*.tiff
+*.heic
+*.bmp
+*.svg
+
+# User submissions, scans, generated packages, and local QA artifacts.
+generated/
+audit_sources/
+qa_*/
+sample_output/
+verified_output/
+sample_submission.json
+submission.json
+templates/source.docm
+
+# Local/runtime files.
+__pycache__/
+*.py[cod]
+node_modules/
+.DS_Store
+*.inspect.ndjson

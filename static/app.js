@@ -1,0 +1,261 @@
+const steps = [
+  { id: "routing", label: "Impact routing", code: "01 · ROUTING" },
+  { id: "details", label: "Model details", code: "02 · SECTION 1" },
+  { id: "assessment", label: "Risk assessment", code: "03 · SECTION 2" },
+  { id: "evidence", label: "Evidence package", code: "04 · EVIDENCE" },
+  { id: "review", label: "Review & generate", code: "05 · REVIEW" },
+];
+
+const businessRules = {
+  "Credit and Fraud Risk": {
+    "Account Receivable / Billed Business": ["≤ $1B", "$1B–$10B", "> $10B"],
+    "Adverse Action Volume": ["≤ 1M", "1M–3M", "> 3M"],
+    "Write-off": ["≤ $4M", "$4M–$50M", "> $50M"],
+  },
+  Marketing: {
+    "Gross Contribution Margin": ["≤ $5M", "$5M–$11M", "> $11M"],
+    "Pre-Tax Income": ["≤ $5M", "$5M–$11M", "> $11M"],
+    "Customers / Prospects Scored": ["≤ 1M", "1M–3M", "> 3M"],
+  },
+  "Technology and Servicing": {
+    "Pre-Tax Income": ["≤ $5M", "$5M–$11M", "> $11M"],
+    "Customers / Prospects Scored": ["≤ 1M", "1M–3M", "> 3M"],
+  },
+  "Finance and Treasury": {
+    "Account Receivable / Billed Business": ["≤ $1B", "$1B–$10B", "> $10B"],
+    "Balance Sheet": ["≤ $1B", "$1B–$10B", "> $10B"],
+    "Write-off": ["≤ $4M", "$4M–$50M", "> $50M"],
+  },
+  "Compliance and Financial Crimes": {
+    "Alert Volume": ["≤ 1M", "1M–3M", "> 3M"],
+    "Compliance Review Volume": ["≤ 1M", "1M–3M", "> 3M"],
+  },
+  Other: {
+    "Customers / Prospects Scored": ["≤ 1M", "1M–3M", "> 3M"],
+    "Pre-Tax Income": ["≤ $5M", "$5M–$11M", "> $11M"],
+  },
+};
+
+const form = document.querySelector("#intakeForm");
+const nav = document.querySelector("#stepNav");
+const nextBtn = document.querySelector("#nextBtn");
+const backBtn = document.querySelector("#backBtn");
+const validationMessage = document.querySelector("#validationMessage");
+const routingResult = document.querySelector("#routingResult");
+const assessmentResult = document.querySelector("#assessmentResult");
+const scoreBreakdown = document.querySelector("#scoreBreakdown");
+const missingSummary = document.querySelector("#missingSummary");
+const STATIC_MODE = !["localhost", "127.0.0.1"].includes(location.hostname);
+let index = 0;
+
+const promptFields = ["promptCallName", "promptCallPurpose", "promptCallText", "promptCallConstraints", "promptCallOutputFormat", "promptCallExampleInput", "promptCallExampleOutput", "promptCallVersion"];
+const fieldLabels = {
+  solutionType: "GenAI solution type", regulatory: "Regulatory reporting use", purpose: "Purpose and business usage",
+  useCaseName: "Use case name", modelOwner: "Model owner", businessUnit: "Business unit", implementationDate: "Implementation date", markets: "At least one market", otherMarket: "Other market", overview: "Use case overview", modelInputs: "Model inputs", generatedOutputs: "Generated outputs", modelName: "Model name", modelVersion: "Model version", hosting: "Hosting location", agentic: "Agentic AI response",
+  endUsers: "Intended end users", businessProcess: "Business process", quantDriver: "Valid quantitative driver", impactThreshold: "Annual impact threshold", reliance: "Business importance / reliance", explainable: "Explainability", fineTuned: "Fine-tuning", multiCall: "Sequential LLM calls", downstream: "Downstream interdependency",
+  sampleSize: "Sample size", metric1: "Performance metric 1", metric1Value: "Metric 1 value", metric1Rationale: "Metric 1 rationale", metric2: "Performance metric 2", metric2Value: "Metric 2 value", metric2Rationale: "Metric 2 rationale", promptCalls: "Complete documentation for every LLM call", metric1Green: "Metric 1 green threshold", metric1Amber: "Metric 1 amber threshold", metric1Red: "Metric 1 red threshold", metric2Green: "Metric 2 green threshold", metric2Amber: "Metric 2 amber threshold", metric2Red: "Metric 2 red threshold", monitoringFrequency: "Monitoring frequency", attestation: "All five B70+ attestations", businessOwnerName: "B70+ business owner", businessOwnerTitle: "B70+ title",
+};
+const stepForField = Object.fromEntries([
+  ["routing", ["solutionType", "regulatory", "purpose"]],
+  ["details", ["useCaseName", "modelOwner", "businessUnit", "implementationDate", "markets", "otherMarket", "overview", "modelInputs", "generatedOutputs", "modelName", "modelVersion", "hosting", "agentic"]],
+  ["assessment", ["endUsers", "businessProcess", "quantDriver", "impactThreshold", "reliance", "explainable", "fineTuned", "multiCall", "downstream"]],
+  ["evidence", ["sampleSize", "metric1", "metric1Value", "metric1Rationale", "metric2", "metric2Value", "metric2Rationale", "promptCalls", "metric1Green", "metric1Amber", "metric1Red", "metric2Green", "metric2Amber", "metric2Red", "monitoringFrequency", "attestation", "businessOwnerName", "businessOwnerTitle"]],
+].flatMap(([stepId, names]) => names.map(name => [name, stepId])));
+
+function esc(value) { return String(value ?? "").replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char])); }
+function values(value) { return Array.isArray(value) ? value : value ? [value] : []; }
+
+function addPromptCall(seed = {}) {
+  const card = document.createElement("fieldset");
+  card.className = "prompt-call";
+  card.innerHTML = `<legend>LLM call <span class="call-number"></span></legend><button type="button" class="remove-call">Remove</button><div class="grid two">
+    <label>Prompt name <span class="req">*</span><input name="promptCallName" value="${esc(seed.promptCallName || "")}" placeholder="e.g., Retrieval answer"></label>
+    <label>Purpose <span class="req">*</span><input name="promptCallPurpose" value="${esc(seed.promptCallPurpose || "")}" placeholder="Why this call exists"></label>
+    <label>Version <span class="req">*</span><input name="promptCallVersion" value="${esc(seed.promptCallVersion || "1.0")}" placeholder="1.0"></label>
+    <label>Output format <span class="req">*</span><input name="promptCallOutputFormat" value="${esc(seed.promptCallOutputFormat || "")}" placeholder="JSON, prose, table…"></label>
+  </div><label>Prompt structure <span class="req">*</span><textarea name="promptCallText" rows="5" placeholder="Exact prompt, placeholders, and context">${esc(seed.promptCallText || "")}</textarea></label>
+  <label>Policies and constraints <span class="req">*</span><textarea name="promptCallConstraints" rows="3" placeholder="Rules, safety constraints, and access boundaries">${esc(seed.promptCallConstraints || "")}</textarea></label>
+  <div class="grid two"><label>Example input <span class="req">*</span><textarea name="promptCallExampleInput" rows="3">${esc(seed.promptCallExampleInput || "")}</textarea></label><label>Example output <span class="req">*</span><textarea name="promptCallExampleOutput" rows="3">${esc(seed.promptCallExampleOutput || "")}</textarea></label></div>`;
+  document.querySelector("#promptCalls").append(card);
+  renumberCalls();
+}
+function renumberCalls() {
+  const cards = [...document.querySelectorAll(".prompt-call")];
+  cards.forEach((card, i) => { card.querySelector(".call-number").textContent = String(i + 1); card.querySelector(".remove-call").hidden = cards.length === 1; });
+}
+
+function formData() {
+  const data = {};
+  new FormData(form).forEach((value, key) => {
+    if (value instanceof File) return;
+    if (Object.hasOwn(data, key)) data[key] = Array.isArray(data[key]) ? [...data[key], value] : [data[key], value];
+    else data[key] = value;
+  });
+  return data;
+}
+
+function route(data = formData()) {
+  if (!data.solutionType) return { complete: false, needsAssessment: false, tier: "Pending", reason: "Select a solution type." };
+  if (data.solutionType === "general") return { complete: true, needsAssessment: false, tier: "Low", reason: "VBA early exit: Q1 Option 1 routes directly to Low and Section 1." };
+  if (!data.regulatory || !data.purpose) return { complete: false, needsAssessment: false, tier: "Pending", reason: "Complete Questions 2 and 3." };
+  if (data.regulatory === "no" && ["customerExperience", "efficiency"].includes(data.purpose)) return { complete: true, needsAssessment: false, tier: "Low", reason: "VBA early exit: Q2 Option 2 with Q3 Option 3 or 4 skips Section 2." };
+  return { complete: true, needsAssessment: true, tier: "Assessment required", reason: "Validate_FormA directs this use case to Section 2." };
+}
+
+function score(data = formData()) {
+  const routed = route(data);
+  if (!routed.needsAssessment) return { complete: routed.complete, tier: routed.complete ? "Low" : "Pending", score: null, earlyExit: routed.complete, components: null, reason: routed.reason };
+  if (["impactThreshold", "reliance", "explainable", "fineTuned", "multiCall", "downstream"].some(name => !data[name])) return { complete: false, tier: "Pending", score: null, earlyExit: false, components: null, reason: "Complete the scored Section 2 questions." };
+  const qn = data.regulatory === "yes" ? 3 : ({ small: 1, medium: 2, large: 3 }[data.impactThreshold] || 0);
+  const qualitative = ({ direct: 3, human: 2, multiple: 1 }[data.reliance] || 0) + (["core", "peopleCompliance"].includes(data.purpose) ? 2 : 1);
+  const ql = qualitative === 5 ? 3 : qualitative === 4 ? 2 : 1;
+  const cx = Number(data.explainable === "no") + Number(data.fineTuned === "yes") + Number(data.multiCall === "yes");
+  const dd = ({ none: 1, some: 2, many: 3 }[data.downstream] || 0);
+  const mic = Number((0.4 * qn + 0.4 * ql + 0.1 * cx + 0.1 * dd).toFixed(2));
+  const tier = mic < 1.2 ? "Low" : mic < 1.8 ? "Medium" : mic < 2.2 ? "High" : "Critical";
+  return { complete: true, tier, score: mic, earlyExit: false, components: { qn, ql, cx, dd }, reason: "MIC calculated with the recovered VBA formula." };
+}
+
+function activeSteps() { const routed = route(); return routed.complete && !routed.needsAssessment ? steps.filter(step => step.id !== "assessment") : steps; }
+function setNamed(name, value) {
+  const elements = [...form.querySelectorAll(`[name="${name}"]`)];
+  for (const [i, element] of elements.entries()) {
+    if (["radio", "checkbox"].includes(element.type)) element.checked = element.value === value || (Array.isArray(value) && value.includes(element.value));
+    else element.value = Array.isArray(value) ? (value[i] ?? "") : value;
+  }
+}
+
+function updateDriverRules(preserve = true) {
+  const process = form.elements.businessProcess.value;
+  const select = form.elements.quantDriver;
+  const prior = preserve ? select.value : "";
+  const drivers = Object.keys(businessRules[process] || {});
+  select.innerHTML = `<option value="">${drivers.length ? "Select" : "Choose a business process first"}</option>` + drivers.map(driver => `<option>${esc(driver)}</option>`).join("");
+  if (drivers.includes(prior)) select.value = prior;
+  const bands = businessRules[process]?.[select.value];
+  [["smallBand", 0, 1], ["mediumBand", 1, 2], ["largeBand", 2, 3]].forEach(([id, band, qn]) => document.querySelector(`#${id}`).innerHTML = bands ? `${esc(bands[band])} · <code>qn = ${qn}</code>` : `<code>qn = ${qn}</code>`);
+}
+
+function syncApplicability() {
+  const general = form.querySelector('[name="solutionType"]:checked')?.value === "general";
+  for (const name of ["regulatory", "purpose"]) {
+    const fieldset = form.querySelector(`fieldset[data-required="${name}"]`); fieldset.classList.toggle("not-applicable", general);
+    fieldset.querySelectorAll("input").forEach(input => { input.disabled = general; if (general) input.checked = false; });
+  }
+  const other = form.querySelector('[name="markets"][value="Other"]')?.checked;
+  form.elements.otherMarket.disabled = !other; form.elements.otherMarket.required = Boolean(other); document.querySelector("#otherMarketLabel").classList.toggle("not-applicable", !other);
+}
+
+function renderDecision() {
+  const routed = route(); routingResult.hidden = !routed.complete;
+  if (routed.complete) routingResult.innerHTML = `<strong>${esc(routed.tier)}</strong><p>${esc(routed.reason)}</p>`;
+  const result = score(); assessmentResult.className = `decision-card ${result.tier.toLowerCase()}`;
+  assessmentResult.innerHTML = !result.complete ? `<strong>MIC pending</strong><p>${esc(result.reason)}</p>` : result.earlyExit ? `<strong>Low</strong><p>Early-exit route; MIC is not calculated and Section 2 is omitted.</p>` : `<strong>${esc(result.tier)} · MIC ${result.score.toFixed(2)}</strong><p>0.4 × qn + 0.4 × ql + 0.1 × cx + 0.1 × dd</p>`;
+  scoreBreakdown.innerHTML = result.components ? [["qn", result.components.qn, "40%", .4], ["ql", result.components.ql, "40%", .4], ["cx", result.components.cx, "10%", .1], ["dd", result.components.dd, "10%", .1]].map(([name, value, weight, factor]) => `<div><span>${name} · ${weight}</span><strong>${value}</strong><small>contributes ${(factor * value).toFixed(2)}</small></div>`).join("") : `<div class="score-empty"><span>MIC components</span><strong>—</strong><small>${esc(result.reason)}</small></div>`;
+}
+
+function requirementList(data = formData()) {
+  const required = ["solutionType"];
+  if (data.solutionType !== "general") required.push("regulatory", "purpose");
+  required.push("useCaseName", "modelOwner", "businessUnit", "implementationDate", "markets", "overview", "modelInputs", "generatedOutputs", "modelName", "modelVersion", "hosting", "agentic");
+  if (values(data.markets).includes("Other")) required.push("otherMarket");
+  if (route(data).needsAssessment) required.push("endUsers", "businessProcess", "quantDriver", "impactThreshold", "reliance", "explainable", "fineTuned", "multiCall", "downstream");
+  required.push("sampleSize", "metric1", "metric1Value", "metric1Rationale", "metric2", "metric2Value", "metric2Rationale", "promptCalls", "metric1Green", "metric1Amber", "metric1Red", "metric2Green", "metric2Amber", "metric2Red", "monitoringFrequency", "attestation", "businessOwnerName", "businessOwnerTitle");
+  return required;
+}
+
+function missingFields(data = formData()) {
+  const missing = [];
+  for (const name of requirementList(data)) {
+    if (name === "attestation" && !["accurate", "eu", "controls", "risk", "scope"].every(value => values(data.attestation).includes(value))) missing.push(name);
+    else if (name === "markets" && !values(data.markets).length) missing.push(name);
+    else if (name === "promptCalls") {
+      const count = document.querySelectorAll(".prompt-call").length;
+      if (!count || promptFields.some(field => values(data[field]).length !== count || values(data[field]).some(value => !String(value).trim())) || (data.multiCall === "yes" && count < 3)) missing.push(name);
+    } else if (!String(data[name] ?? "").trim()) missing.push(name);
+  }
+  if (route(data).needsAssessment && !businessRules[data.businessProcess]?.[data.quantDriver]) missing.push("quantDriver");
+  if (data.sampleSize && Number(data.sampleSize) < 1) missing.push("sampleSize");
+  return [...new Set(missing)];
+}
+
+function markInvalid(missing) {
+  form.querySelectorAll(".invalid").forEach(element => element.classList.remove("invalid")); form.querySelectorAll('[aria-invalid="true"]').forEach(element => element.removeAttribute("aria-invalid"));
+  for (const name of missing) {
+    if (name === "promptCalls") document.querySelector("#promptCalls").classList.add("invalid");
+    const fieldset = form.querySelector(`fieldset[data-required="${name}"], fieldset[data-required-all="${name}"]`); if (fieldset) fieldset.classList.add("invalid");
+    form.querySelectorAll(`[name="${name}"]`).forEach(element => element.setAttribute("aria-invalid", "true"));
+  }
+}
+function showMissingSummary(missing) {
+  if (!missing.length) { missingSummary.hidden = true; missingSummary.innerHTML = ""; return; }
+  const grouped = {}; for (const name of missing) (grouped[stepForField[name]] ||= []).push(fieldLabels[name]);
+  missingSummary.hidden = false; missingSummary.innerHTML = `<strong>${missing.length} required item${missing.length === 1 ? "" : "s"} remain</strong><p>Open a section below to complete it.</p><div>${Object.entries(grouped).map(([stepId, labels]) => `<button type="button" data-jump="${stepId}"><span>${esc(steps.find(step => step.id === stepId)?.label || stepId)}</span><small>${esc(labels.join(" · "))}</small></button>`).join("")}</div>`;
+}
+
+function updateNavigation() {
+  const active = activeSteps(), missing = missingFields();
+  for (const element of nav.querySelectorAll(".nav-step")) {
+    const activeIndex = active.findIndex(step => step.id === element.dataset.nav); element.hidden = activeIndex < 0; element.classList.toggle("active", active[index]?.id === element.dataset.nav);
+    const incomplete = missing.some(name => stepForField[name] === element.dataset.nav); element.classList.toggle("complete", activeIndex >= 0 && !incomplete && element.dataset.nav !== "review"); element.querySelector("i").textContent = activeIndex < 0 ? "—" : !incomplete && element.dataset.nav !== "review" ? "✓" : String(activeIndex + 1).padStart(2, "0");
+  }
+  const required = requirementList(), pct = required.length ? Math.round((required.length - missing.length) / required.length * 100) : 0, ring = document.querySelector("#progressRing"); ring.style.setProperty("--p", pct); ring.querySelector("span").textContent = `${pct}%`; ring.setAttribute("aria-label", `${pct}% of required fields complete`);
+}
+function review() {
+  const data = formData(), routed = route(data), result = score(data), markets = values(data.markets).join(", ") || "—";
+  document.querySelector("#reviewSummary").innerHTML = [["Use case", data.useCaseName || "—"], ["Model", `${data.modelName || "—"} ${data.modelVersion || ""}`], ["Routing", routed.tier], ["Final impact", result.score == null ? result.tier : `${result.tier} · MIC ${result.score.toFixed(2)}`], ["Section 2", routed.needsAssessment ? "Included and completed" : "Omitted by VBA early exit"], ["Markets", markets], ["LLM calls", document.querySelectorAll(".prompt-call").length], ["Output", STATIC_MODE ? "Validated submission JSON" : "6 core files plus optional support"]].map(([key, value]) => `<div class="review-item"><span>${esc(key)}</span><strong>${esc(value)}</strong></div>`).join("");
+  showMissingSummary(missingFields(data));
+}
+function render(scroll = true) {
+  const active = activeSteps(); if (index >= active.length) index = active.length - 1; const current = active[index];
+  document.querySelectorAll(".step").forEach(section => section.classList.toggle("active", section.dataset.step === current.id)); document.querySelector("#pageTitle").textContent = current.label; document.querySelector("#stepLabel").textContent = current.code; backBtn.style.visibility = index === 0 ? "hidden" : "visible"; nextBtn.style.display = current.id === "review" ? "none" : "block"; document.querySelector(".form-actions").style.display = current.id === "review" ? "none" : "grid"; validationMessage.textContent = ""; updateNavigation(); if (current.id === "review") review(); if (scroll) window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function saveDraft() { localStorage.setItem("mrmg-first-line-draft", JSON.stringify(formData())); document.querySelector("#autosave").textContent = `Saved ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`; }
+function restoreDraft() {
+  const raw = localStorage.getItem("mrmg-first-line-draft"); if (!raw) return;
+  try {
+    const data = JSON.parse(raw), count = Math.max(1, values(data.promptCallName).length);
+    while (document.querySelectorAll(".prompt-call").length < count) addPromptCall();
+    for (const [name, value] of Object.entries(data)) if (name !== "quantDriver") setNamed(name, value);
+    updateDriverRules(false); setNamed("quantDriver", data.quantDriver || ""); updateDriverRules(true);
+  } catch (_) { localStorage.removeItem("mrmg-first-line-draft"); }
+}
+function applyScenario(name) {
+  const scenarios = { low: { impactThreshold: "small", reliance: "multiple", explainable: "yes", fineTuned: "no", multiCall: "no", downstream: "none" }, medium: { impactThreshold: "small", reliance: "human", explainable: "no", fineTuned: "yes", multiCall: "no", downstream: "none" }, high: { impactThreshold: "medium", reliance: "direct", explainable: "yes", fineTuned: "no", multiCall: "no", downstream: "none" }, critical: { impactThreshold: "large", reliance: "direct", explainable: "no", fineTuned: "yes", multiCall: "yes", downstream: "many" } };
+  setNamed("solutionType", "custom"); setNamed("regulatory", name === "critical" ? "yes" : "no"); setNamed("purpose", "core"); setNamed("endUsers", name === "low" ? "none" : name === "medium" ? "internal" : "customer"); setNamed("businessProcess", "Credit and Fraud Risk"); updateDriverRules(false); setNamed("quantDriver", "Adverse Action Volume"); updateDriverRules(true); for (const [field, value] of Object.entries(scenarios[name])) setNamed(field, value); syncApplicability(); renderDecision(); saveDraft(); render(false);
+}
+async function payloadWithFiles() {
+  const data = formData(), files = [...document.querySelector("#supportingFiles").files];
+  if (files.some(file => file.size > 8_000_000) || files.reduce((sum, file) => sum + file.size, 0) > 20_000_000) throw new Error("Supporting files must be 8 MB or less each and 20 MB or less in total.");
+  data.supportingFiles = await Promise.all(files.map(file => new Promise((resolve, reject) => { const reader = new FileReader(); reader.onerror = () => reject(reader.error); reader.onload = () => resolve({ name: file.name, data: String(reader.result).split(",")[1] }); reader.readAsDataURL(file); })));
+  return data;
+}
+function downloadJson(data) {
+  const safe = { ...data, supportingFileNames: [...document.querySelector("#supportingFiles").files].map(file => file.name) };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(safe, null, 2)], { type: "application/json" })); const link = document.createElement("a"); link.href = url; link.download = `${String(data.useCaseName).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "submission"}.json`; link.click(); URL.revokeObjectURL(url);
+}
+
+nav.innerHTML = steps.map(step => `<button type="button" class="nav-step" data-nav="${step.id}"><i>01</i><span>${esc(step.label)}</span></button>`).join(""); addPromptCall();
+nav.addEventListener("click", event => { const button = event.target.closest("[data-nav]"); if (!button) return; const target = activeSteps().findIndex(step => step.id === button.dataset.nav); if (target >= 0) { index = target; render(); } });
+form.addEventListener("change", event => { if (["solutionType", "markets"].includes(event.target.name)) syncApplicability(); if (event.target.name === "businessProcess") updateDriverRules(false); if (event.target.name === "quantDriver") updateDriverRules(true); renderDecision(); saveDraft(); render(false); });
+form.addEventListener("input", event => { event.target.removeAttribute("aria-invalid"); event.target.closest("fieldset")?.classList.remove("invalid"); document.querySelector("#promptCalls").classList.remove("invalid"); saveDraft(); updateNavigation(); if (activeSteps()[index]?.id === "review") review(); });
+document.querySelector("#addPromptCall").addEventListener("click", () => { addPromptCall(); saveDraft(); updateNavigation(); });
+document.querySelector("#promptCalls").addEventListener("click", event => { const button = event.target.closest(".remove-call"); if (!button) return; button.closest(".prompt-call").remove(); renumberCalls(); saveDraft(); updateNavigation(); });
+nextBtn.addEventListener("click", () => { const current = activeSteps()[index], left = missingFields().filter(name => stepForField[name] === current.id).length; if (left) validationMessage.textContent = `${left} required item${left === 1 ? "" : "s"} remain here; you can return later.`; index = Math.min(index + 1, activeSteps().length - 1); render(); });
+backBtn.addEventListener("click", () => { index = Math.max(0, index - 1); render(); });
+document.querySelectorAll("[data-scenario]").forEach(button => button.addEventListener("click", () => applyScenario(button.dataset.scenario)));
+missingSummary.addEventListener("click", event => { const button = event.target.closest("[data-jump]"); if (!button) return; const target = activeSteps().findIndex(step => step.id === button.dataset.jump); if (target >= 0) { index = target; render(); } });
+document.querySelector("#resetBtn").addEventListener("click", () => { if (!confirm("Reset the locally saved draft?")) return; form.reset(); document.querySelector("#promptCalls").innerHTML = ""; addPromptCall(); localStorage.removeItem("mrmg-first-line-draft"); index = 0; updateDriverRules(false); syncApplicability(); renderDecision(); render(); });
+document.querySelector("#generateBtn").addEventListener("click", async () => {
+  const button = document.querySelector("#generateBtn"), status = document.querySelector("#generationStatus"), missing = missingFields(); markInvalid(missing); showMissingSummary(missing);
+  if (missing.length) { status.textContent = "Generation paused until all applicable required fields are complete."; missingSummary.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
+  button.disabled = true;
+  try {
+    if (STATIC_MODE) { downloadJson(formData()); status.textContent = "Validated submission JSON exported. Run the local service to create the Word/Excel ZIP."; }
+    else { status.textContent = "Generating and validating the Word and Excel package…"; const response = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(await payloadWithFiles()) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || "Generation failed"); status.innerHTML = `Package generated successfully. <a href="${esc(result.download)}">Download ${esc(result.filename)}</a><br>${esc(result.summary)}`; }
+  } catch (error) { status.textContent = `Could not generate: ${error.message}`; } finally { button.disabled = false; }
+});
+
+if (STATIC_MODE) { const button = document.querySelector("#generateBtn"); button.querySelector("span").textContent = "Export validated submission JSON"; button.querySelector("small").textContent = "Browser-only GitHub Pages mode"; }
+restoreDraft(); updateDriverRules(true); syncApplicability(); renderDecision(); render(false);
