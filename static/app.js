@@ -54,13 +54,13 @@ const fieldLabels = {
   solutionType: "GenAI solution type", regulatory: "Regulatory reporting use", purpose: "Purpose and business usage",
   useCaseName: "Use case name", modelOwner: "Model owner", businessUnit: "Business unit", implementationDate: "Implementation date", markets: "At least one market", otherMarket: "Other market", overview: "Use case overview", modelInputs: "Model inputs", generatedOutputs: "Generated outputs", modelName: "Model name", modelVersion: "Model version", hosting: "Hosting location", agentic: "Agentic AI response",
   endUsers: "Intended end users", businessProcess: "Business process", quantDriver: "Valid quantitative driver", impactThreshold: "Annual impact threshold", reliance: "Business importance / reliance", explainable: "Explainability", fineTuned: "Fine-tuning", multiCall: "Sequential LLM calls", downstream: "Downstream interdependency",
-  sampleSize: "Sample size", metrics: "At least one complete performance metric", promptCalls: "Complete documentation for every LLM call", monitoringFrequency: "Monitoring frequency", attestation: "All five B70+ attestations", businessOwnerName: "B70+ business owner", businessOwnerTitle: "B70+ title",
+  sampleSize: "Sample size", metrics: "At least one complete performance metric", promptCalls: "Complete documentation for every LLM call", monitoringFrequency: "Monitoring frequency", attestation: "All five B70+ attestations", businessOwnerName: "B70+ business owner", businessOwnerTitle: "B70+ title", businessOwnerEmail: "B70+ email",
 };
 const stepForField = Object.fromEntries([
   ["routing", ["solutionType", "regulatory", "purpose"]],
   ["details", ["useCaseName", "modelOwner", "businessUnit", "implementationDate", "markets", "otherMarket", "overview", "modelInputs", "generatedOutputs", "modelName", "modelVersion", "hosting", "agentic"]],
   ["assessment", ["endUsers", "businessProcess", "quantDriver", "impactThreshold", "reliance", "explainable", "fineTuned", "multiCall", "downstream"]],
-  ["evidence", ["sampleSize", "metrics", "promptCalls", "monitoringFrequency", "attestation", "businessOwnerName", "businessOwnerTitle"]],
+  ["evidence", ["sampleSize", "metrics", "promptCalls", "monitoringFrequency", "attestation", "businessOwnerName", "businessOwnerTitle", "businessOwnerEmail"]],
 ].flatMap(([stepId, names]) => names.map(name => [name, stepId])));
 
 function esc(value) { return String(value ?? "").replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char])); }
@@ -182,7 +182,7 @@ function requirementList(data = formData()) {
   required.push("useCaseName", "modelOwner", "businessUnit", "implementationDate", "markets", "overview", "modelInputs", "generatedOutputs", "modelName", "modelVersion", "hosting", "agentic");
   if (values(data.markets).includes("Other")) required.push("otherMarket");
   if (route(data).needsAssessment) required.push("endUsers", "businessProcess", "quantDriver", "impactThreshold", "reliance", "explainable", "fineTuned", "multiCall", "downstream");
-  required.push("sampleSize", "metrics", "promptCalls", "monitoringFrequency", "attestation", "businessOwnerName", "businessOwnerTitle");
+  required.push("sampleSize", "metrics", "promptCalls", "monitoringFrequency", "attestation", "businessOwnerName", "businessOwnerTitle", "businessOwnerEmail");
   return required;
 }
 
@@ -229,7 +229,7 @@ function updateNavigation() {
 }
 function review() {
   const data = formData(), routed = route(data), result = score(data), markets = values(data.markets).join(", ") || "—";
-  document.querySelector("#reviewSummary").innerHTML = [["Use case", data.useCaseName || "—"], ["Model", `${data.modelName || "—"} ${data.modelVersion || ""}`], ["Routing", routed.tier], ["Final impact", result.score == null ? result.tier : `${result.tier} · MIC ${result.score.toFixed(2)}`], ["Section 2", routed.needsAssessment ? "Included and completed" : "Not required for this route"], ["Markets", markets], ["Metrics", document.querySelectorAll(".metric-card").length], ["LLM calls", document.querySelectorAll(".prompt-call").length], ["Output", "6 core files plus optional support"]].map(([key, value]) => `<div class="review-item"><span>${esc(key)}</span><strong>${esc(value)}</strong></div>`).join("");
+  document.querySelector("#reviewSummary").innerHTML = [["Use case", data.useCaseName || "—"], ["Model", `${data.modelName || "—"} ${data.modelVersion || ""}`], ["Routing", routed.tier], ["Final impact", result.score == null ? result.tier : `${result.tier} · MIC ${result.score.toFixed(2)}`], ["Section 2", routed.needsAssessment ? "Included and completed" : "Not required for this route"], ["Markets", markets], ["Metrics", document.querySelectorAll(".metric-card").length], ["LLM calls", document.querySelectorAll(".prompt-call").length], ["Output", "7 core files plus optional support"]].map(([key, value]) => `<div class="review-item"><span>${esc(key)}</span><strong>${esc(value)}</strong></div>`).join("");
   showMissingSummary(missingFields(data));
 }
 function render(scroll = true) {
@@ -283,10 +283,10 @@ document.querySelector("#generateBtn").addEventListener("click", async () => {
   if (missing.length) { status.textContent = "Generation paused until all applicable required fields are complete."; missingSummary.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
   button.disabled = true;
   try {
-    if (STATIC_MODE) { status.textContent = "Creating the Word, Excel, JSON, and ZIP package on this device…"; const { generateBrowserPackage } = await import("./browser-generator.js"); const result = await generateBrowserPackage({ ...formData(), impactTier: score().tier, assessmentScore: score().score, assessmentComponents: score().components, section2Included: route().needsAssessment }, [...document.querySelector("#supportingFiles").files]); downloadBlob(result.blob, result.filename); status.textContent = result.summary; }
-    else { status.textContent = "Generating and validating the Word and Excel package…"; const response = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(await payloadWithFiles()) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || "Generation failed"); status.innerHTML = `Package generated successfully. <a href="${esc(result.download)}">Download ${esc(result.filename)}</a><br>${esc(result.summary)}`; }
+    if (STATIC_MODE) { status.textContent = "Creating the Word, Excel, email, JSON, and ZIP package on this device…"; const { generateBrowserPackage } = await import("./browser-generator.js"); const result = await generateBrowserPackage({ ...formData(), impactTier: score().tier, assessmentScore: score().score, assessmentComponents: score().components, section2Included: route().needsAssessment }, [...document.querySelector("#supportingFiles").files]); downloadBlob(result.blob, result.filename); status.textContent = result.summary; }
+    else { status.textContent = "Generating and validating the document, workbook, and email package…"; const response = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(await payloadWithFiles()) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || "Generation failed"); status.innerHTML = `Package generated successfully. <a href="${esc(result.download)}">Download ${esc(result.filename)}</a><br>${esc(result.summary)}`; }
   } catch (error) { status.textContent = `Could not generate: ${error.message}`; } finally { button.disabled = false; }
 });
 
-if (STATIC_MODE) { const button = document.querySelector("#generateBtn"); button.querySelector("span").textContent = "Generate submission package"; button.querySelector("small").textContent = "Word + Excel + JSON + ZIP · stays on this device"; }
+if (STATIC_MODE) { const button = document.querySelector("#generateBtn"); button.querySelector("span").textContent = "Generate submission package"; button.querySelector("small").textContent = "Word + Excel + email + JSON + ZIP · stays on this device"; }
 restoreDraft(); updateDriverRules(true); syncApplicability(); renderDecision(); render(false);

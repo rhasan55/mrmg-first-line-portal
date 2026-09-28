@@ -1,4 +1,6 @@
 import json
+from email import policy
+from email.parser import BytesParser
 import tempfile
 import threading
 import unittest
@@ -33,7 +35,7 @@ def sample(profile="low"):
         "metric1Green": "Accuracy >= 80%", "metric1Amber": "65% <= Accuracy < 80%", "metric1Red": "Accuracy < 65%",
         "metric2Green": "Hallucination rate <= 3%", "metric2Amber": "3% < Hallucination rate <= 5%", "metric2Red": "Hallucination rate > 5%",
         "monitoringFrequency": "Annual", "attestation": ["accurate", "eu", "controls", "risk", "scope"],
-        "businessOwnerName": "Avery Morgan", "businessOwnerTitle": "SVP, Enterprise Services",
+        "businessOwnerName": "Avery Morgan", "businessOwnerTitle": "SVP, Enterprise Services", "businessOwnerEmail": "avery.morgan@example.com",
     }
     profiles = {
         "low_assessed": {"purpose": "core", "endUsers": "none", "businessProcess": "Technology and Servicing", "quantDriver": "Customers / Prospects Scored", "impactThreshold": "small", "reliance": "multiple", "explainable": "yes", "fineTuned": "no", "multiCall": "no", "downstream": "none"},
@@ -106,7 +108,7 @@ class GenerationTests(unittest.TestCase):
     def test_complete_package_documents_rules_and_section2(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = generate(sample("high"), Path(tmp))
-            for key in ["package", "primary", "workbook", "prompt", "monitoring", "attestation"]:
+            for key in ["package", "primary", "workbook", "prompt", "monitoring", "attestation", "email"]:
                 self.assertTrue(result[key].exists(), key); self.assertGreater(result[key].stat().st_size, 300)
             with zipfile.ZipFile(result["primary"]) as zf:
                 document_xml = zf.read("word/document.xml").decode("utf-8")
@@ -126,9 +128,14 @@ class GenerationTests(unittest.TestCase):
             attestation_text = "\n".join(paragraph.text for paragraph in Document(result["attestation"]).paragraphs)
             self.assertIn("Mandatory controls have been tested", attestation_text)
             self.assertIn("at least annually", attestation_text)
+            email_message = BytesParser(policy=policy.default).parsebytes(result["email"].read_bytes())
+            self.assertEqual(email_message["From"], "Avery Morgan <avery.morgan@example.com>")
+            self.assertIn("B70+ Attestation", email_message["Subject"])
+            self.assertIn("Residual risk is understood", email_message.get_content())
             with zipfile.ZipFile(result["package"]) as zf:
-                self.assertEqual(len(zf.namelist()), 6)
+                self.assertEqual(len(zf.namelist()), 7)
                 self.assertIn("B70+ Attestation Template.docx", zf.namelist())
+                self.assertIn("B70+ Attestation Email.eml", zf.namelist())
 
     def test_low_document_omits_section2(self):
         with tempfile.TemporaryDirectory() as tmp:

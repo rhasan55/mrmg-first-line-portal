@@ -10,13 +10,25 @@ const metrics = input.metrics?.length ? input.metrics : [1, 2].map(number => ({
   metricName: input[`metric${number}`] || "",
   metricValue: input[`metric${number}Value`] || "",
   metricRationale: input[`metric${number}Rationale`] || "",
+  metricGreen: input[`metric${number}Green`] || "",
+  metricAmber: input[`metric${number}Amber`] || "",
+  metricRed: input[`metric${number}Red`] || "",
 })).filter(metric => metric.metricName);
 
-const rows = [["Field", "Description"], ["Sample Size", input.sampleSize || ""]];
+const rows = [
+  ["Outcome Analysis", ""],
+  ["Use Case", input.useCaseName || ""],
+  ["Model", `${input.modelName || ""} ${input.modelVersion || ""}`.trim()],
+  ["Field", "Description"],
+  ["Sample Size", Number(input.sampleSize) || input.sampleSize || ""],
+];
 metrics.forEach((metric, index) => rows.push(
   [`Performance Metric ${index + 1}\n(Name & Description)`, metric.metricName],
   [`Rationale for Metric ${index + 1}`, metric.metricRationale],
   [`Performance Metric ${index + 1} Value`, metric.metricValue],
+  [`Performance Metric ${index + 1} Green Threshold`, metric.metricGreen],
+  [`Performance Metric ${index + 1} Amber Threshold`, metric.metricAmber],
+  [`Performance Metric ${index + 1} Red Threshold`, metric.metricRed],
 ));
 const lastRow = rows.length;
 
@@ -25,30 +37,45 @@ const sheet = wb.worksheets.add("Outcome Analysis");
 sheet.showGridLines = false;
 sheet.getRange(`A1:B${lastRow}`).values = rows;
 sheet.getRange(`A1:B${lastRow}`).format = {
-  font: { name: "Arial", size: 11, color: "#333333" },
+  font: { name: "Arial", size: 10, color: "#333333" },
   verticalAlignment: "center", wrapText: true,
-  borders: { preset: "all", style: "thin", color: "#7F7F7F" },
 };
+sheet.mergeCells("A1:B1");
 sheet.getRange("A1:B1").format = {
-  fill: "#203864", font: { name: "Arial", size: 11, bold: true, color: "#FFFFFF" },
+  font: { name: "Arial", size: 15, bold: true, color: "#365C73" },
+  horizontalAlignment: "left", verticalAlignment: "center",
+};
+sheet.getRange("A2:A3").format = {
+  font: { name: "Arial", size: 10, bold: true, color: "#333333" },
+  verticalAlignment: "center", borders: { preset: "all", style: "thin", color: "#7F7F7F" },
+};
+sheet.getRange("B2:B3").format = {
+  font: { name: "Arial", size: 10, color: "#333333" },
+  verticalAlignment: "center", borders: { preset: "all", style: "thin", color: "#7F7F7F" },
+};
+sheet.getRange("A4:B4").format = {
+  fill: "#203864", font: { name: "Arial", size: 10, bold: true, color: "#FFFFFF" },
   horizontalAlignment: "center", verticalAlignment: "center",
   borders: { preset: "all", style: "thin", color: "#7F7F7F" },
 };
-sheet.getRange(`A2:A${lastRow}`).format = {
-  font: { name: "Arial", size: 11, bold: true, color: "#333333" },
+sheet.getRange(`A5:A${lastRow}`).format = {
+  fill: "#D9E2F3", font: { name: "Arial", size: 10, bold: true, color: "#333333" },
   horizontalAlignment: "center", verticalAlignment: "center", wrapText: true,
   borders: { preset: "all", style: "thin", color: "#7F7F7F" },
 };
-sheet.getRange(`B2:B${lastRow}`).format = {
-  font: { name: "Arial", size: 11, color: "#333333" },
+sheet.getRange(`B5:B${lastRow}`).format = {
+  font: { name: "Arial", size: 10, color: "#333333" },
   horizontalAlignment: "left", verticalAlignment: "center", wrapText: true,
   borders: { preset: "all", style: "thin", color: "#7F7F7F" },
 };
-sheet.getRange(`A1:A${lastRow}`).format.columnWidth = 31;
-sheet.getRange(`B1:B${lastRow}`).format.columnWidth = 92;
-sheet.getRange("A1:B1").format.rowHeight = 27;
-sheet.getRange(`A2:B${lastRow}`).format.rowHeight = 55;
-sheet.freezePanes.freezeRows(1);
+sheet.getRange(`A1:A${lastRow}`).format.columnWidth = 41;
+sheet.getRange(`B1:B${lastRow}`).format.columnWidth = 80;
+sheet.getRange("A1:B1").format.rowHeight = 30;
+sheet.getRange("A2:B3").format.rowHeight = 24;
+sheet.getRange("A4:B4").format.rowHeight = 27;
+sheet.getRange(`A5:B${lastRow}`).format.rowHeight = 44;
+sheet.getRange("A5:B5").format.rowHeight = 30;
+sheet.freezePanes.freezeRows(4);
 
 wb.recalculate();
 const inspect = await wb.inspect({ kind: "table", range: `Outcome Analysis!A1:B${lastRow}`, include: "values,formulas", tableMaxRows: Math.max(lastRow, 10), tableMaxCols: 4 });

@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64, binascii, json, os, re, shutil, subprocess, tempfile, zipfile
 from copy import deepcopy
 from datetime import datetime
+from email.message import EmailMessage
 from pathlib import Path
 from lxml import etree as LET
 
@@ -121,7 +122,7 @@ def validate(data: dict) -> list[str]:
     required = ["solutionType"]
     if data.get("solutionType") != "general":
         required += ["regulatory", "purpose"]
-    required += ["useCaseName", "modelOwner", "businessUnit", "implementationDate", "overview", "modelInputs", "generatedOutputs", "modelName", "modelVersion", "hosting", "agentic", "sampleSize", "monitoringFrequency", "businessOwnerName", "businessOwnerTitle"]
+    required += ["useCaseName", "modelOwner", "businessUnit", "implementationDate", "overview", "modelInputs", "generatedOutputs", "modelName", "modelVersion", "hosting", "agentic", "sampleSize", "monitoringFrequency", "businessOwnerName", "businessOwnerTitle", "businessOwnerEmail"]
     if routing(data)["needs_assessment"]:
         required += ["endUsers", "businessProcess", "quantDriver", "impactThreshold", "reliance", "explainable", "fineTuned", "multiCall", "downstream"]
     missing = [name for name in required if not str(data.get(name, "")).strip()]
@@ -151,6 +152,8 @@ def validate(data: dict) -> list[str]:
         if data.get("sampleSize") and int(data["sampleSize"]) < 1: missing.append("sampleSize")
     except (TypeError, ValueError):
         missing.append("sampleSize")
+    if data.get("businessOwnerEmail") and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", str(data["businessOwnerEmail"])):
+        missing.append("businessOwnerEmail")
     for item in as_list(data.get("supportingFiles")):
         if not isinstance(item, dict) or not str(item.get("name", "")).strip() or not str(item.get("data", "")).strip():
             missing.append("supportingFiles"); break
@@ -344,6 +347,7 @@ def build_attestation_doc(data, path):
     grid_table(doc, ["Reference", "Details"], [
         ["Use Case", data["useCaseName"]],
         ["Business Owner", data["businessOwnerName"]],
+        ["Business Owner Email", data["businessOwnerEmail"]],
         ["Title", data["businessOwnerTitle"]],
         ["Date", datetime.now().strftime("%m/%d/%Y")],
     ], [1.55, 5.25], header_fill=LIGHT_BLUE)
@@ -361,8 +365,31 @@ def build_attestation_doc(data, path):
     doc.add_paragraph(f"Ongoing monitoring will be completed at least annually. The submitted plan currently specifies a {str(data['monitoringFrequency']).lower()} cadence.")
     doc.add_paragraph("For a Medium Impact customer-facing pilot, the fifth attestation may be not applicable until production use, subject to MRMG direction.")
     heading(doc, "Signature", level=2)
-    line_value(doc, "Name:", data["businessOwnerName"]); line_value(doc, "Title:", data["businessOwnerTitle"]); line_value(doc, "Date:", datetime.now().strftime("%m/%d/%Y"))
+    line_value(doc, "Name:", data["businessOwnerName"]); line_value(doc, "Email:", data["businessOwnerEmail"]); line_value(doc, "Title:", data["businessOwnerTitle"]); line_value(doc, "Date:", datetime.now().strftime("%m/%d/%Y"))
     doc.save(path)
+
+
+def build_b70_email(data, path):
+    message = EmailMessage()
+    message["From"] = f"{data['businessOwnerName']} <{data['businessOwnerEmail']}>"
+    message["Subject"] = f"B70+ Attestation - {data['useCaseName']}"
+    message["X-Unsent"] = "1"
+    attestations = [
+        "All information provided regarding the use case in the model documentation is accurate.",
+        "If used in the EU market, the use does not fall under Prohibited AI practices or High-risk AI systems under the EU AI Act; otherwise this item is not applicable.",
+        "Mandatory controls have been tested for effectiveness and will be implemented in production.",
+        "Residual risk is understood, accepted, and within the business risk appetite.",
+        "The model will be used only within the intended scope described in the documentation.",
+    ]
+    lines = [
+        "To the MRMG / Model Store review team,", "",
+        f"I am providing the B70+ business attestation for the {data['useCaseName']} GenAI use case.", "",
+        *[f"{index}. {item}" for index, item in enumerate(attestations, 1)], "",
+        f"The ongoing monitoring plan uses a {str(data['monitoringFrequency']).lower()} cadence.", "",
+        "Regards,", data["businessOwnerName"], data["businessOwnerTitle"], data["businessOwnerEmail"], "",
+    ]
+    message.set_content("\n".join(lines))
+    path.write_bytes(message.as_bytes())
 
 
 def add_submission_content(doc, data, result):
@@ -438,6 +465,7 @@ def add_submission_content(doc, data, result):
     ]
     for item in attestations: doc.add_paragraph(item, style="List Bullet")
     attachment_card(doc, "B70+ Attestation Template.docx", "Completed Word attestation from the named B70+ business owner")
+    attachment_card(doc, "B70+ Attestation Email.eml", "Ready-to-send draft email from the named B70+ business owner")
     doc.add_paragraph("The attestation may be provided by the primary B70+ business owner. Where there is no single owner, such as for a foundational capability, a B70+ owner who uses the capability or owns the relevant process may provide the attestation.")
     heading(doc, "Ongoing Monitoring Plan", level=2)
     doc.add_paragraph("Submit the ongoing monitoring plan with defined metrics, thresholds, cadence, action triggers, and evidence-retention expectations.")
@@ -490,7 +518,7 @@ def add_submission_content(doc, data, result):
 
     heading(doc, "Supporting Files in Submission ZIP", level=2)
     doc.add_paragraph("These completed artifacts are included as separate, usable files in the submission ZIP:")
-    for name in ["Outcome Analysis.xlsx", "Prompt Submission Template.docx", "Ongoing Monitoring Plan.docx", "B70+ Attestation Template.docx"]:
+    for name in ["Outcome Analysis.xlsx", "Prompt Submission Template.docx", "Ongoing Monitoring Plan.docx", "B70+ Attestation Template.docx", "B70+ Attestation Email.eml", "submission.json"]:
         p = doc.add_paragraph(style="List Bullet"); p.add_run(name).bold = True
 
 
@@ -520,11 +548,11 @@ def generate(data: dict, output_dir: Path | None = None) -> dict:
     result = assess(data); enriched = {**data, "metrics": metrics(data), "impactTier": result["tier"], "assessmentScore": result["score"], "assessmentComponents": result["components"], "section2Included": routing(data)["needs_assessment"]}
     slug = re.sub(r"[^a-z0-9]+", "-", data["useCaseName"].lower()).strip("-")[:48] or "submission"
     output_dir = output_dir or GENERATED / f"{datetime.now():%Y%m%d-%H%M%S}-{slug}"; output_dir.mkdir(parents=True, exist_ok=True)
-    prompt, monitoring, workbook, attestation_path = output_dir / "Prompt Submission Template.docx", output_dir / "Ongoing Monitoring Plan.docx", output_dir / "Outcome Analysis.xlsx", output_dir / "B70+ Attestation Template.docx"
+    prompt, monitoring, workbook, attestation_path, b70_email = output_dir / "Prompt Submission Template.docx", output_dir / "Ongoing Monitoring Plan.docx", output_dir / "Outcome Analysis.xlsx", output_dir / "B70+ Attestation Template.docx", output_dir / "B70+ Attestation Email.eml"
     primary = output_dir / f"MRMG First Line Submission{'.docm' if SOURCE_DOCM.exists() else '.docx'}"; json_path = output_dir / "submission.json"
     serializable = {key: value for key, value in enriched.items() if key != "supportingFiles"}
     serializable["supportingFileNames"] = [item.get("name") for item in as_list(enriched.get("supportingFiles"))]
-    json_path.write_text(json.dumps(serializable, indent=2), encoding="utf-8"); build_prompt_doc(enriched, prompt); build_monitoring_doc(enriched, monitoring); build_attestation_doc(enriched, attestation_path)
+    json_path.write_text(json.dumps(serializable, indent=2), encoding="utf-8"); build_prompt_doc(enriched, prompt); build_monitoring_doc(enriched, monitoring); build_attestation_doc(enriched, attestation_path); build_b70_email(enriched, b70_email)
     env = os.environ.copy(); env["NODE_PATH"] = str(NODE_MODULES)
     subprocess.run([str(NODE), str(ROOT / "generate_workbook.mjs"), str(json_path), str(workbook)], check=True, env=env, capture_output=True, text=True)
     build_primary(enriched, result, primary)
@@ -538,9 +566,9 @@ def generate(data: dict, output_dir: Path | None = None) -> dict:
             target.write_bytes(base64.b64decode(item["data"], validate=True)); optional_paths.append(target)
     package = output_dir / f"{slug}-mrmg-submission.zip"
     with zipfile.ZipFile(package, "w", zipfile.ZIP_DEFLATED) as zf:
-        for item in [primary, workbook, prompt, monitoring, attestation_path, json_path]: zf.write(item, item.name)
+        for item in [primary, workbook, prompt, monitoring, attestation_path, b70_email, json_path]: zf.write(item, item.name)
         for item in optional_paths: zf.write(item, f"Supporting Documents/{item.name}")
-    return {"directory": output_dir, "package": package, "primary": primary, "workbook": workbook, "prompt": prompt, "monitoring": monitoring, "attestation": attestation_path, "result": result}
+    return {"directory": output_dir, "package": package, "primary": primary, "workbook": workbook, "prompt": prompt, "monitoring": monitoring, "attestation": attestation_path, "email": b70_email, "result": result}
 
 
 if __name__ == "__main__":

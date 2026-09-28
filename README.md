@@ -30,12 +30,13 @@ Local mode creates a ZIP containing:
 - `Prompt Submission Template.docx`;
 - `Ongoing Monitoring Plan.docx`;
 - `B70+ Attestation Template.docx`;
+- `B70+ Attestation Email.eml` (an unsent draft populated with the business owner details and attestations);
 - `submission.json`; and
 - optional supporting files in `Supporting Documents/`.
 
 ## GitHub Pages
 
-The public Pages portal supports the complete intake, routing, scoring, validation, local draft storage, and full submission-package generation. Because GitHub Pages cannot execute the Python service, a browser-side generator creates four Word documents, the Outcome Analysis Excel workbook, submission JSON, optional supporting documents, and the final ZIP entirely on the user's device. Answers and attachments are not transmitted to GitHub or another server.
+The public Pages portal supports the complete intake, routing, scoring, validation, local draft storage, and full submission-package generation. Because GitHub Pages cannot execute the Python service, a browser-side generator creates four Word documents, the Outcome Analysis Excel workbook, a B70+ draft email, submission JSON, optional supporting documents, and the final ZIP entirely on the user's device. Answers and attachments are not transmitted to GitHub or another server.
 
 The workflow in `.github/workflows/pages.yml` installs the browser dependencies, builds the static application with Vite, and publishes only `dist/`. It does not commit or deploy source scans, documents, spreadsheets, PDFs, images, user submissions, or generated packages.
 
@@ -58,7 +59,7 @@ The generated supporting files are separate usable files in the ZIP. True clicka
 python3 -m unittest discover -s tests -v
 ```
 
-The suite covers routing, MIC bands and exact boundaries, process/driver validation, repeatable metrics, prompt-call count rules, Section 2 inclusion/omission, Word and Excel generation, B70+ Word output, ZIP integrity, optional DOCM package preservation, and HTTP generation/download. The browser package builder has a separate Node test:
+The suite covers routing, MIC bands and exact boundaries, process/driver validation, repeatable metrics, prompt-call count rules, Section 2 inclusion/omission, Word and Excel generation, B70+ Word and email output, ZIP integrity, optional DOCM package preservation, and HTTP generation/download. The browser package builder has a separate Node test:
 
 ```bash
 pnpm test:browser-generator

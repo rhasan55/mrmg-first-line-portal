@@ -109,16 +109,17 @@
             <div class="grid two b70-fields">
               <label>B70+ business owner <span class="req">*</span><input name="businessOwnerName" required placeholder="Attester name"></label>
               <label>B70+ title <span class="req">*</span><input name="businessOwnerTitle" required placeholder="Business title"></label>
+              <label>B70+ email <span class="req">*</span><input type="email" name="businessOwnerEmail" required placeholder="attester@company.com"></label>
             </div>
-            <p class="hint">The package creates the B70+ attestation as a Word document, matching the scanned attachment type.</p>
+            <p class="hint">The package creates both the B70+ Word attestation and a ready-to-send draft email file.</p>
           </section>
 
           <section class="step" data-step="review">
             <div class="intro"><p class="overline">Review</p><h3>Generate the complete submission package.</h3><p>Required fields are enforced here, after allowing free movement among sections.</p></div>
             <div id="reviewSummary" class="review-grid"></div>
             <div id="missingSummary" class="missing-summary" hidden></div>
-            <div class="generation-note"><strong>Private, browser-side generation</strong><p>The public site creates the primary Word questionnaire, Outcome Analysis workbook, Prompt Submission document, Ongoing Monitoring Plan, B70+ Word attestation, JSON, and final ZIP entirely on this device. Your answers and attachments are not uploaded. Low-impact routes omit Section 2.</p></div>
-            <button type="button" class="generate" id="generateBtn"><span>Generate submission package</span><small>Word + Excel + Word templates + JSON + ZIP</small></button>
+            <div class="generation-note"><strong>Private, browser-side generation</strong><p>The public site creates the primary Word questionnaire, Outcome Analysis workbook, Prompt Submission document, Ongoing Monitoring Plan, B70+ Word attestation, B70+ draft email, JSON, and final ZIP entirely on this device. Your answers and attachments are not uploaded. Low-impact routes omit Section 2.</p></div>
+            <button type="button" class="generate" id="generateBtn"><span>Generate submission package</span><small>Word + Excel + email + JSON + ZIP</small></button>
             <div id="generationStatus" class="generation-status" role="status"></div>
           </section>
 
