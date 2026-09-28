@@ -36,7 +36,7 @@ class Handler(BaseHTTPRequestHandler):
             if length > 30_000_000: raise ValueError("Payload is too large")
             result = generate(json.loads(self.rfile.read(length))); relative = result["package"].relative_to(GENERATED)
             score = result["result"]["score"]
-            score_text = "VBA early exit (no MIC calculation)" if score is None else f"MIC {score:.2f}"
+            score_text = "No MIC calculation required" if score is None else f"MIC {score:.2f}"
             self._json(200, {"filename": result["package"].name, "download": "/downloads/" + str(relative), "summary": f"{result['result']['tier']} · {score_text} · {result['primary'].suffix.upper().removeprefix('.')} primary document · verified ZIP"})
         except Exception as exc: self._json(400, {"error": str(exc)})
     def log_message(self, fmt, *args): print(f"[{self.log_date_time_string()}] {fmt % args}")
