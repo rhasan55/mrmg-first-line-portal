@@ -54,10 +54,10 @@ BUSINESS_RULES = {
 
 def routing(data: dict) -> dict:
     if data.get("solutionType") == "general":
-        return {"tier": "Low", "needs_assessment": False, "reason": "VBA early exit: Q1 Option 1 routes directly to Low and Section 1."}
+        return {"tier": "Low", "needs_assessment": False, "reason": "General-purpose solutions route directly to Low impact and Section 1."}
     if data.get("regulatory") == "no" and data.get("purpose") in {"customerExperience", "efficiency"}:
-        return {"tier": "Low", "needs_assessment": False, "reason": "VBA early exit: Q2 Option 2 with Q3 Option 3 or 4 skips Section 2."}
-    return {"tier": "Assessment required", "needs_assessment": True, "reason": "Validate_FormA directs this use case to Section 2."}
+        return {"tier": "Low", "needs_assessment": False, "reason": "This combination routes directly to Low impact and does not require Section 2."}
+    return {"tier": "Assessment required", "needs_assessment": True, "reason": "The selected use requires the Section 2 impact assessment."}
 
 
 def assess(data: dict) -> dict:
@@ -78,7 +78,7 @@ def assess(data: dict) -> dict:
         "tier": tier, "score": mic, "early_exit": False,
         "components": {"qn": qn_val, "ql": ql_val, "cx": cx_val, "dd": dd_val},
         "formula": "0.4 × qn + 0.4 × ql + 0.1 × cx + 0.1 × dd",
-        "reason": "MIC calculated with the recovered Validate_FormB rules.",
+        "reason": "MIC calculated with the approved impact rules.",
     }
 
 

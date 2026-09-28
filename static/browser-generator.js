@@ -68,7 +68,7 @@ function primaryBody(data, metrics) {
   if (data.section2Included) {
     const components = data.assessmentComponents || {};
     body += paragraph("Section 2: Model Impact Category Assessment", "Heading1") + table([["Field", "Response"], ["End users", data.endUsers], ["Business process", data.businessProcess], ["Quantitative driver", data.quantDriver], ["Impact threshold", data.impactThreshold], ["Reliance", data.reliance], ["Explainability feasible", data.explainable], ["Fine-tuned", data.fineTuned], ["Sequential calls", data.multiCall], ["Downstream interdependency", data.downstream], ["Components", `qn ${components.qn}; ql ${components.ql}; cx ${components.cx}; dd ${components.dd}`]]);
-  } else body += paragraph("Section 2 omitted by the applicable VBA early-exit rule.");
+  } else body += paragraph("Section 2 is not required for this routing outcome.");
   body += pageBreak() + paragraph("Outcome analysis and monitoring", "Heading1") + table([["Metric", "Observed value"], ...metrics.map(metric => [metric.metricName, metric.metricValue])]);
   body += paragraph("Supporting files in this package", "Heading2") + paragraph("Outcome Analysis.xlsx\nPrompt Submission Template.docx\nOngoing Monitoring Plan.docx\nB70+ Attestation Template.docx\nsubmission.json");
   return body;

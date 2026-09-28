@@ -1,6 +1,6 @@
 # MRMG First Line Intake
 
-A step-by-step GenAI model-risk intake that implements the routing and scoring rules recovered from the supplied questionnaire and VBA notes.
+A step-by-step GenAI model-risk intake that implements the approved questionnaire routing and scoring rules.
 
 ## What the portal implements
 
@@ -25,7 +25,7 @@ Then open <http://127.0.0.1:8765>.
 
 Local mode creates a ZIP containing:
 
-- the completed questionnaire (`.docx`, or `.docm` when an original macro-enabled template is supplied);
+- the completed questionnaire (`.docx`, or `.docm` when an original DOCM template is supplied);
 - `Outcome Analysis.xlsx`;
 - `Prompt Submission Template.docx`;
 - `Ongoing Monitoring Plan.docx`;
@@ -46,9 +46,9 @@ pnpm install
 pnpm build
 ```
 
-## Original macro-enabled template
+## Optional DOCM source template
 
-The scanned Notes attachment does not contain the original Word package or its `vbaProject.bin`. To preserve the original macros, place the source file locally at `templates/source.docm`. That file is ignored by Git and will never be pushed. The generator preserves its package parts, appends the completed response, and emits a `.docm`. Without it, the generator emits a standards-compliant `.docx`.
+To retain an original DOCM package locally, place the source file at `templates/source.docm`. That file is ignored by Git and will never be pushed. The local generator preserves its package parts, appends the completed response, and emits a `.docm`. Without it, the generator emits a standards-compliant `.docx`.
 
 The generated supporting files are separate usable files in the ZIP. True clickable OLE embedding requires the original Word template and a Word-compatible authoring environment; the portal does not make a false embedding claim.
 
@@ -58,7 +58,7 @@ The generated supporting files are separate usable files in the ZIP. True clicka
 python3 -m unittest discover -s tests -v
 ```
 
-The suite covers routing, MIC bands and exact boundaries, process/driver validation, repeatable metrics, prompt-call count rules, Section 2 inclusion/omission, Word and Excel generation, B70+ Word output, ZIP integrity, optional DOCM macro preservation, and HTTP generation/download. The browser package builder has a separate Node test:
+The suite covers routing, MIC bands and exact boundaries, process/driver validation, repeatable metrics, prompt-call count rules, Section 2 inclusion/omission, Word and Excel generation, B70+ Word output, ZIP integrity, optional DOCM package preservation, and HTTP generation/download. The browser package builder has a separate Node test:
 
 ```bash
 pnpm test:browser-generator

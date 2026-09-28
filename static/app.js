@@ -118,10 +118,10 @@ function formData() {
 
 function route(data = formData()) {
   if (!data.solutionType) return { complete: false, needsAssessment: false, tier: "Pending", reason: "Select a solution type." };
-  if (data.solutionType === "general") return { complete: true, needsAssessment: false, tier: "Low", reason: "VBA early exit: Q1 Option 1 routes directly to Low and Section 1." };
+  if (data.solutionType === "general") return { complete: true, needsAssessment: false, tier: "Low", reason: "General-purpose solutions route directly to Low impact and Section 1." };
   if (!data.regulatory || !data.purpose) return { complete: false, needsAssessment: false, tier: "Pending", reason: "Complete Questions 2 and 3." };
-  if (data.regulatory === "no" && ["customerExperience", "efficiency"].includes(data.purpose)) return { complete: true, needsAssessment: false, tier: "Low", reason: "VBA early exit: Q2 Option 2 with Q3 Option 3 or 4 skips Section 2." };
-  return { complete: true, needsAssessment: true, tier: "Assessment required", reason: "Validate_FormA directs this use case to Section 2." };
+  if (data.regulatory === "no" && ["customerExperience", "efficiency"].includes(data.purpose)) return { complete: true, needsAssessment: false, tier: "Low", reason: "This combination routes directly to Low impact and does not require Section 2." };
+  return { complete: true, needsAssessment: true, tier: "Assessment required", reason: "The selected use requires the Section 2 impact assessment." };
 }
 
 function score(data = formData()) {
@@ -135,7 +135,7 @@ function score(data = formData()) {
   const dd = ({ none: 1, some: 2, many: 3 }[data.downstream] || 0);
   const mic = Number((0.4 * qn + 0.4 * ql + 0.1 * cx + 0.1 * dd).toFixed(2));
   const tier = mic < 1.2 ? "Low" : mic < 1.8 ? "Medium" : mic < 2.2 ? "High" : "Critical";
-  return { complete: true, tier, score: mic, earlyExit: false, components: { qn, ql, cx, dd }, reason: "MIC calculated with the recovered VBA formula." };
+  return { complete: true, tier, score: mic, earlyExit: false, components: { qn, ql, cx, dd }, reason: "MIC calculated with the approved impact formula." };
 }
 
 function activeSteps() { const routed = route(); return routed.complete && !routed.needsAssessment ? steps.filter(step => step.id !== "assessment") : steps; }
@@ -229,7 +229,7 @@ function updateNavigation() {
 }
 function review() {
   const data = formData(), routed = route(data), result = score(data), markets = values(data.markets).join(", ") || "—";
-  document.querySelector("#reviewSummary").innerHTML = [["Use case", data.useCaseName || "—"], ["Model", `${data.modelName || "—"} ${data.modelVersion || ""}`], ["Routing", routed.tier], ["Final impact", result.score == null ? result.tier : `${result.tier} · MIC ${result.score.toFixed(2)}`], ["Section 2", routed.needsAssessment ? "Included and completed" : "Omitted by VBA early exit"], ["Markets", markets], ["Metrics", document.querySelectorAll(".metric-card").length], ["LLM calls", document.querySelectorAll(".prompt-call").length], ["Output", "6 core files plus optional support"]].map(([key, value]) => `<div class="review-item"><span>${esc(key)}</span><strong>${esc(value)}</strong></div>`).join("");
+  document.querySelector("#reviewSummary").innerHTML = [["Use case", data.useCaseName || "—"], ["Model", `${data.modelName || "—"} ${data.modelVersion || ""}`], ["Routing", routed.tier], ["Final impact", result.score == null ? result.tier : `${result.tier} · MIC ${result.score.toFixed(2)}`], ["Section 2", routed.needsAssessment ? "Included and completed" : "Not required for this route"], ["Markets", markets], ["Metrics", document.querySelectorAll(".metric-card").length], ["LLM calls", document.querySelectorAll(".prompt-call").length], ["Output", "6 core files plus optional support"]].map(([key, value]) => `<div class="review-item"><span>${esc(key)}</span><strong>${esc(value)}</strong></div>`).join("");
   showMissingSummary(missingFields(data));
 }
 function render(scroll = true) {
