@@ -21,7 +21,7 @@ from docx import Document
 def sample(profile="low"):
     data = {
         "solutionType": "custom", "regulatory": "no", "purpose": "efficiency",
-        "useCaseName": "Knowledge Assistant", "modelOwner": "Model Team", "businessUnit": "Enterprise Services",
+        "useCaseName": "Knowledge Assistant", "modelOwner": "Model Team", "modelOwnerEmail": "model.team@example.com", "businessUnit": "Enterprise Services",
         "implementationDate": "2026-09-30", "markets": ["US"], "overview": "Answers questions from approved knowledge.",
         "modelInputs": "User query and approved documents", "generatedOutputs": "Grounded answer with citations",
         "modelName": "OpenAI GPT", "modelVersion": "5.1", "hosting": "axp", "agentic": "no",
@@ -112,10 +112,16 @@ class GenerationTests(unittest.TestCase):
                 self.assertTrue(result[key].exists(), key); self.assertGreater(result[key].stat().st_size, 300)
             with zipfile.ZipFile(result["primary"]) as zf:
                 document_xml = zf.read("word/document.xml").decode("utf-8")
-                self.assertIn("Section 2: Model Impact Category Assessment", document_xml)
+                self.assertIn("Section 2: Model Risk Tier Assessment", document_xml)
                 self.assertIn("C000A0", document_xml)
                 self.assertIn("1M–3M", document_xml)
-                self.assertIn("Business Impact Threshold Reference", document_xml)
+                self.assertIn("A. Business Impact (Quantitative)", document_xml)
+                self.assertIn("B. Business Importance (Qualitative)", document_xml)
+                self.assertIn("C. Model Complexity", document_xml)
+                self.assertIn("D. Interdependency", document_xml)
+                self.assertIn("OLEObject", document_xml)
+                self.assertIn("word/footnotes.xml", zf.namelist())
+                self.assertEqual(len([name for name in zf.namelist() if name.startswith("word/embeddings/")]), 4)
             primary_doc = Document(result["primary"])
             component_tables = [table for table in primary_doc.tables if table.rows[0].cells[0].text == "qn (40%)"]
             self.assertEqual(len(component_tables), 1)
@@ -129,9 +135,12 @@ class GenerationTests(unittest.TestCase):
             self.assertIn("Mandatory controls have been tested", attestation_text)
             self.assertIn("at least annually", attestation_text)
             email_message = BytesParser(policy=policy.default).parsebytes(result["email"].read_bytes())
-            self.assertEqual(email_message["From"], "Avery Morgan <avery.morgan@example.com>")
+            self.assertEqual(email_message["From"], "Model Team <model.team@example.com>")
+            self.assertEqual(email_message["To"], "Avery Morgan <avery.morgan@example.com>")
             self.assertIn("B70+ Attestation", email_message["Subject"])
-            self.assertIn("Residual risk is understood", email_message.get_content())
+            self.assertTrue(email_message.is_multipart())
+            self.assertIn("Residual risk is understood", email_message.get_body(preferencelist=("plain",)).get_content())
+            self.assertEqual({part.get_filename() for part in email_message.iter_attachments()}, {"MRMG First Line Submission.docx", "Outcome Analysis.xlsx", "Ongoing Monitoring Plan.docx"})
             with zipfile.ZipFile(result["package"]) as zf:
                 self.assertEqual(len(zf.namelist()), 7)
                 self.assertIn("B70+ Attestation Template.docx", zf.namelist())
@@ -142,7 +151,7 @@ class GenerationTests(unittest.TestCase):
             result = generate(sample("low"), Path(tmp))
             with zipfile.ZipFile(result["primary"]) as zf:
                 document_xml = zf.read("word/document.xml").decode("utf-8")
-            self.assertNotIn("Section 2: Model Impact Category Assessment", document_xml)
+            self.assertNotIn("Section 2: Model Risk Tier Assessment", document_xml)
             self.assertIn("5. Additional Details Required", document_xml)
 
     def test_source_docm_vba_part_is_preserved(self):

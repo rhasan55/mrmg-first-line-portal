@@ -4,7 +4,7 @@ import JSZip from "jszip";
 import { generateBrowserPackage } from "../static/browser-generator.js";
 
 const data = {
-  useCaseName: "Browser Package QA", modelOwner: "Model Team", businessUnit: "Enterprise Services",
+  useCaseName: "Browser Package QA", modelOwner: "Model Team", modelOwnerEmail: "model.team@example.com", businessUnit: "Enterprise Services",
   implementationDate: "2026-09-30", markets: ["US"], modelName: "OpenAI GPT", modelVersion: "5.1",
   hosting: "axp", agentic: "no", overview: "Answers approved knowledge questions.",
   modelInputs: "User query and approved documents", generatedOutputs: "Grounded response",
@@ -21,17 +21,26 @@ const data = {
   promptCallExampleOutput: "Policy says…", promptCallVersion: "1.0", businessOwnerName: "Avery Morgan", businessOwnerTitle: "SVP", businessOwnerEmail: "avery.morgan@example.com",
 };
 
-const result = await generateBrowserPackage(data, []);
+const support = { name: "supporting-evidence.txt", type: "text/plain", async arrayBuffer() { return new TextEncoder().encode("evidence").buffer; } };
+const result = await generateBrowserPackage(data, [support]);
 if (process.env.BROWSER_QA_OUTPUT) await fs.writeFile(process.env.BROWSER_QA_OUTPUT, new Uint8Array(await result.blob.arrayBuffer()));
 assert.equal(result.filename, "browser-package-qa-mrmg-submission.zip");
 const outer = await JSZip.loadAsync(await result.blob.arrayBuffer());
-const expected = ["MRMG First Line Submission.docx", "Prompt Submission Template.docx", "Ongoing Monitoring Plan.docx", "B70+ Attestation Template.docx", "B70+ Attestation Email.eml", "Outcome Analysis.xlsx", "submission.json"];
-assert.deepEqual(Object.keys(outer.files).sort(), expected.sort());
+const expected = ["MRMG First Line Submission.docx", "Prompt Submission Template.docx", "Ongoing Monitoring Plan.docx", "B70+ Attestation Template.docx", "B70+ Attestation Email.eml", "Outcome Analysis.xlsx", "submission.json", "Supporting Documents/supporting-evidence.txt"];
+assert.deepEqual(Object.values(outer.files).filter(item => !item.dir).map(item => item.name).sort(), expected.sort());
 const primary = await JSZip.loadAsync(await outer.file("MRMG First Line Submission.docx").async("uint8array"));
 const primaryXml = await primary.file("word/document.xml").async("text");
-assert.match(primaryXml, /Section 2: Model Impact Category Assessment/);
+assert.match(primaryXml, /Section 2: Model Risk Tier Assessment/);
+assert.match(primaryXml, /A\. Business Impact \(Quantitative\)/);
+assert.match(primaryXml, /B\. Business Importance \(Qualitative\)/);
+assert.match(primaryXml, /C\. Model Complexity/);
+assert.match(primaryXml, /D\. Interdependency/);
 assert.match(primaryXml, /Browser Package QA/);
-assert.match(primaryXml, /B70\+ Attestation Email\.eml/);
+assert.match(primaryXml, /o:OLEObject/);
+assert.ok(primary.file("word/footnotes.xml"));
+assert.equal(Object.keys(primary.files).filter(name => name.startsWith("word/embeddings/") && !name.endsWith("/")).length, 5);
+assert.ok(primary.file("word/embeddings/embedded1.xlsx"));
+assert.ok(primary.file("word/embeddings/embedded5.txt"));
 const monitoring = await JSZip.loadAsync(await outer.file("Ongoing Monitoring Plan.docx").async("uint8array"));
 const monitoringXml = await monitoring.file("word/document.xml").async("text");
 assert.match(monitoringXml, /User satisfaction/);
@@ -41,9 +50,11 @@ assert.match(sheetXml, /Performance Metric 3/);
 assert.match(sheetXml, /User satisfaction/);
 assert.match(sheetXml, /Green Threshold/);
 const email = await outer.file("B70+ Attestation Email.eml").async("text");
-assert.match(email, /From: Avery Morgan <avery\.morgan@example\.com>/);
+assert.match(email, /From: Model Team <model\.team@example\.com>/);
+assert.match(email, /To: Avery Morgan <avery\.morgan@example\.com>/);
 assert.match(email, /X-Unsent: 1/);
 assert.match(email, /Residual risk is understood/);
+assert.match(email, /Content-Disposition: attachment; filename="MRMG First Line Submission\.docx"/);
 const submission = JSON.parse(await outer.file("submission.json").async("text"));
 assert.equal(submission.metrics.length, 3);
 
@@ -62,6 +73,6 @@ const lowRouteResult = await generateBrowserPackage(lowRouteData, []);
 const lowOuter = await JSZip.loadAsync(await lowRouteResult.blob.arrayBuffer());
 const lowPrimary = await JSZip.loadAsync(await lowOuter.file("MRMG First Line Submission.docx").async("uint8array"));
 const lowPrimaryXml = await lowPrimary.file("word/document.xml").async("text");
-assert.doesNotMatch(lowPrimaryXml, /Section 2: Model Impact Category Assessment/);
+assert.doesNotMatch(lowPrimaryXml, /Section 2: Model Risk Tier Assessment/);
 assert.match(lowPrimaryXml, /It is a Low Impact model\. Proceed to fill in Section 1\./);
 console.log("Browser generator package verified:", expected.join(", "));

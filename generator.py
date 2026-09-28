@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import base64, binascii, json, os, re, shutil, subprocess, tempfile, zipfile
+import base64, binascii, json, mimetypes, os, re, shutil, subprocess, tempfile, zipfile
 from copy import deepcopy
 from datetime import datetime
 from email.message import EmailMessage
@@ -122,7 +122,7 @@ def validate(data: dict) -> list[str]:
     required = ["solutionType"]
     if data.get("solutionType") != "general":
         required += ["regulatory", "purpose"]
-    required += ["useCaseName", "modelOwner", "businessUnit", "implementationDate", "overview", "modelInputs", "generatedOutputs", "modelName", "modelVersion", "hosting", "agentic", "sampleSize", "monitoringFrequency", "businessOwnerName", "businessOwnerTitle", "businessOwnerEmail"]
+    required += ["useCaseName", "modelOwner", "modelOwnerEmail", "businessUnit", "implementationDate", "overview", "modelInputs", "generatedOutputs", "modelName", "modelVersion", "hosting", "agentic", "sampleSize", "monitoringFrequency", "businessOwnerName", "businessOwnerTitle", "businessOwnerEmail"]
     if routing(data)["needs_assessment"]:
         required += ["endUsers", "businessProcess", "quantDriver", "impactThreshold", "reliance", "explainable", "fineTuned", "multiCall", "downstream"]
     missing = [name for name in required if not str(data.get(name, "")).strip()]
@@ -154,6 +154,8 @@ def validate(data: dict) -> list[str]:
         missing.append("sampleSize")
     if data.get("businessOwnerEmail") and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", str(data["businessOwnerEmail"])):
         missing.append("businessOwnerEmail")
+    if data.get("modelOwnerEmail") and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", str(data["modelOwnerEmail"])):
+        missing.append("modelOwnerEmail")
     for item in as_list(data.get("supportingFiles")):
         if not isinstance(item, dict) or not str(item.get("name", "")).strip() or not str(item.get("data", "")).strip():
             missing.append("supportingFiles"); break
@@ -260,8 +262,10 @@ def grid_table(doc, headers, rows, widths=None, header_fill=NAVY, header_text_co
         shade(cell, header_fill)
         cell_text(cell, text, True, header_text_color, 9.5, align=WD_ALIGN_PARAGRAPH.CENTER)
         set_cell_border(cell, top={"color":"7F7F7F"}, bottom={"color":"7F7F7F"}, start={"color":"7F7F7F"}, end={"color":"7F7F7F"})
+    header_pr = table.rows[0]._tr.get_or_add_trPr(); repeat = OxmlElement("w:tblHeader"); header_pr.append(repeat); header_pr.append(OxmlElement("w:cantSplit"))
     for row in rows:
         cells = table.add_row().cells
+        table.rows[-1]._tr.get_or_add_trPr().append(OxmlElement("w:cantSplit"))
         for i, (cell, value) in enumerate(zip(cells, row)):
             if widths: cell.width = Inches(widths[i])
             cell_text(cell, value, size=9.5)
@@ -269,10 +273,11 @@ def grid_table(doc, headers, rows, widths=None, header_fill=NAVY, header_text_co
     return table
 
 
-def attachment_card(doc, filename, description):
+def attachment_card(doc, filename, description, embed_index=None):
     table = doc.add_table(rows=1, cols=2); table.autofit = False
     icon, details = table.rows[0].cells; icon.width = Inches(.62); details.width = Inches(6.1)
-    shade(icon, "E7E6E6"); cell_text(icon, "FILE", True, BLUE, 8, align=WD_ALIGN_PARAGRAPH.CENTER)
+    embed_index = embed_index or {"Outcome Analysis.xlsx": 1, "Prompt Submission Template.docx": 2, "B70+ Attestation Template.docx": 3, "Ongoing Monitoring Plan.docx": 4}.get(filename)
+    shade(icon, "E7E6E6"); cell_text(icon, f"[[EMBED{embed_index}]]" if embed_index else "FILE", True, BLUE, 8, align=WD_ALIGN_PARAGRAPH.CENTER)
     details.text = ""; p = details.paragraphs[0]; p.paragraph_format.space_after = Pt(0)
     run = p.add_run(filename); run.bold = True; run.font.name = "Arial"; run.font.size = Pt(10)
     p = details.add_paragraph(description); p.paragraph_format.space_after = Pt(0)
@@ -280,6 +285,12 @@ def attachment_card(doc, filename, description):
     for cell in (icon, details):
         set_cell_border(cell, top={"color":"BFBFBF"}, bottom={"color":"BFBFBF"}, start={"color":"BFBFBF"}, end={"color":"BFBFBF"})
     return table
+
+
+def add_footnote_marker(paragraph, number):
+    run = paragraph.add_run(f"[[FN{number}]]")
+    run.font.superscript = True
+    return run
 
 
 def build_prompt_doc(data, path):
@@ -343,52 +354,54 @@ def build_monitoring_doc(data, path):
 
 
 def build_attestation_doc(data, path):
-    doc = base_document("B70+ Attestation Template")
-    grid_table(doc, ["Reference", "Details"], [
-        ["Use Case", data["useCaseName"]],
-        ["Business Owner", data["businessOwnerName"]],
-        ["Business Owner Email", data["businessOwnerEmail"]],
-        ["Title", data["businessOwnerTitle"]],
-        ["Date", datetime.now().strftime("%m/%d/%Y")],
-    ], [1.55, 5.25], header_fill=LIGHT_BLUE)
-    doc.add_paragraph("The business owner confirms the following attestations for the submitted GenAI use case:")
+    doc = base_document("Reference Template for B70+ Attestation")
+    p = doc.add_paragraph(); p.add_run("Subject: ").bold = True; p.add_run(f"B70+ Attestation for GenAI Use Case – {data['useCaseName']}")
+    doc.add_paragraph(f"Dear {data['businessOwnerName']},")
+    doc.add_paragraph("To proceed with model risk certification, a formal attestation from the business owner (B70+) is required.")
+    doc.add_paragraph("This attestation serves as confirmation that the use case information, control environment, testing, residual risk, and ongoing monitoring plan have been reviewed and approved.")
+    p = doc.add_paragraph(); p.add_run("Please find attached:").bold = True
+    for item in ["Completed model documentation", "Outcome testing results", "Ongoing monitoring plan"]: doc.add_paragraph(item, style="List Bullet")
+    heading(doc, "Attestation")
+    doc.add_paragraph("As the designated business owner, I confirm the following:")
     attestations = [
-        "All information provided regarding the use case in the model documentation is accurate.",
-        "If used in the EU market, the use does not fall under Prohibited AI practices or High-risk AI systems under the EU AI Act; otherwise this item is not applicable.",
-        "Mandatory controls have been tested for effectiveness and will be implemented in production.",
-        "Residual risk is understood, accepted, and within the business risk appetite.",
-        "The model will be used only within the intended scope described in the documentation.",
+        ("Use Within Scope", "The model will be used only within the intended scope described in the submitted documentation."),
+        ("Mandatory Control Effectiveness and Implementation", "Mandatory controls have been tested for effectiveness and will be implemented in production."),
+        ("Testing Effectiveness", "The testing performed is appropriate for the use case and supports the conclusions documented in the submission."),
+        ("Residual Risk Acceptance", "Residual risk is understood, accepted, and within the business risk appetite."),
+        ("Ongoing Monitoring", f"Ongoing monitoring will be performed at least annually; the submitted plan currently specifies a {str(data['monitoringFrequency']).lower()} cadence."),
     ]
-    for number, item in enumerate(attestations, 1):
-        p = doc.add_paragraph(); p.add_run(f"{number}. ").bold = True; p.add_run(item)
-    heading(doc, "Ongoing Monitoring", level=2)
-    doc.add_paragraph(f"Ongoing monitoring will be completed at least annually. The submitted plan currently specifies a {str(data['monitoringFrequency']).lower()} cadence.")
-    doc.add_paragraph("For a Medium Impact customer-facing pilot, the fifth attestation may be not applicable until production use, subject to MRMG direction.")
-    heading(doc, "Signature", level=2)
+    for number, (name, item) in enumerate(attestations, 1):
+        p = doc.add_paragraph(); p.add_run(f"{number}. {name}\n").bold = True; p.add_run(item)
+    p = doc.add_paragraph("Mandatory controls are defined in the framework"); p.runs[0].italic = True; add_footnote_marker(p, 1)
+    heading(doc, "Approval", level=2)
     line_value(doc, "Name:", data["businessOwnerName"]); line_value(doc, "Email:", data["businessOwnerEmail"]); line_value(doc, "Title:", data["businessOwnerTitle"]); line_value(doc, "Date:", datetime.now().strftime("%m/%d/%Y"))
     doc.save(path)
 
 
-def build_b70_email(data, path):
+def build_b70_email(data, path, attachments):
     message = EmailMessage()
-    message["From"] = f"{data['businessOwnerName']} <{data['businessOwnerEmail']}>"
-    message["Subject"] = f"B70+ Attestation - {data['useCaseName']}"
+    message["From"] = f"{data['modelOwner']} <{data['modelOwnerEmail']}>"
+    message["To"] = f"{data['businessOwnerName']} <{data['businessOwnerEmail']}>"
+    message["Subject"] = f"B70+ Attestation for GenAI Use Case - {data['useCaseName']}"
     message["X-Unsent"] = "1"
-    attestations = [
-        "All information provided regarding the use case in the model documentation is accurate.",
-        "If used in the EU market, the use does not fall under Prohibited AI practices or High-risk AI systems under the EU AI Act; otherwise this item is not applicable.",
-        "Mandatory controls have been tested for effectiveness and will be implemented in production.",
-        "Residual risk is understood, accepted, and within the business risk appetite.",
-        "The model will be used only within the intended scope described in the documentation.",
-    ]
     lines = [
-        "To the MRMG / Model Store review team,", "",
-        f"I am providing the B70+ business attestation for the {data['useCaseName']} GenAI use case.", "",
-        *[f"{index}. {item}" for index, item in enumerate(attestations, 1)], "",
-        f"The ongoing monitoring plan uses a {str(data['monitoringFrequency']).lower()} cadence.", "",
-        "Regards,", data["businessOwnerName"], data["businessOwnerTitle"], data["businessOwnerEmail"], "",
+        f"Dear {data['businessOwnerName']},", "",
+        "To proceed with model risk certification, a formal attestation from the business owner (B70+) is required.", "",
+        "This attestation serves as confirmation that:",
+        "1. The model will be used only within the intended scope described in the documentation.",
+        "2. Mandatory controls have been tested for effectiveness and will be implemented in production.",
+        "3. Testing performed is appropriate for the use case and supports the documented conclusions.",
+        "4. Residual risk is understood, accepted, and within the business risk appetite.",
+        f"5. Ongoing monitoring will be completed at least annually; the submitted plan specifies a {str(data['monitoringFrequency']).lower()} cadence.", "",
+        "Please find attached:", "- Completed model documentation", "- Outcome testing results", "- Ongoing monitoring plan", "",
+        "Please reply confirming your approval of the above attestation.", "",
+        "Regards,", data["modelOwner"], data["modelOwnerEmail"], "",
     ]
     message.set_content("\n".join(lines))
+    for attachment in attachments:
+        content_type = attachment["content_type"]
+        maintype, subtype = content_type.split("/", 1)
+        message.add_attachment(Path(attachment["path"]).read_bytes(), maintype=maintype, subtype=subtype, filename=attachment["filename"])
     path.write_bytes(message.as_bytes())
 
 
@@ -428,8 +441,7 @@ def add_submission_content(doc, data, result):
     p = doc.add_paragraph(); p.add_run("Select all markets in which the model is currently used or expected to be used at go-live (select all that apply):").bold = True
     option_line(doc, "US" in markets, "US"); option_line(doc, "EU" in markets, "EU*")
     option_line(doc, "Other" in markets, "Other – Please specify: " + (data.get("otherMarket", "") if "Other" in markets else ""))
-    p = doc.add_paragraph("* If the use case is used in the EU market, the model owner should assess whether the use case falls under Prohibited AI practices or High-risk AI systems under the EU AI Act. The B70+ attestation should confirm the result.")
-    p.runs[0].italic = True; p.runs[0].font.size = Pt(9)
+    p = doc.add_paragraph("Customer-facing routing and impact are evaluated under the framework"); p.runs[0].italic = True; p.runs[0].font.size = Pt(9); add_footnote_marker(p, 1)
 
     prompt(doc, 1, "Please provide the name and an overview of the use case along with a summary of model inputs and outputs.")
     line_value(doc, "Use Case Name:", data.get("useCaseName")); line_value(doc, "Overview:", data.get("overview"))
@@ -437,6 +449,8 @@ def add_submission_content(doc, data, result):
     p = doc.add_paragraph(); p.add_run("Optional Supporting documents").bold = True
     supporting = as_list(data.get("supportingFiles"))
     doc.add_paragraph("If applicable, attach supporting workflow or control documentation. " + ("Included in the ZIP: " + ", ".join(str(item.get("name", "")) for item in supporting) if supporting else "No optional supporting files were supplied."))
+    for index, item in enumerate(supporting, 5):
+        attachment_card(doc, Path(str(item.get("name", "supporting-file"))).name, "Optional supporting evidence supplied with this submission", embed_index=index)
 
     prompt(doc, 2, "GenAI technology: Please provide the Generative AI model leveraged, hosting location, and whether the use case is implemented as an Agentic AI.")
     line_value(doc, "Model Name:", data.get("modelName")); line_value(doc, "Model Version:", data.get("modelVersion"))
@@ -452,7 +466,6 @@ def add_submission_content(doc, data, result):
     prompt(doc, 4, "What is the planned implementation date for the use case?")
     line_value(doc, "Implementation Date:", data.get("implementationDate"))
 
-    doc.add_page_break()
     heading(doc, "5. Additional Details Required")
     heading(doc, "B70+ Business Attestation", level=2)
     doc.add_paragraph("Attach an email from the business B70+ confirming that:")
@@ -465,12 +478,11 @@ def add_submission_content(doc, data, result):
     ]
     for item in attestations: doc.add_paragraph(item, style="List Bullet")
     attachment_card(doc, "B70+ Attestation Template.docx", "Completed Word attestation from the named B70+ business owner")
-    attachment_card(doc, "B70+ Attestation Email.eml", "Ready-to-send draft email from the named B70+ business owner")
     doc.add_paragraph("The attestation may be provided by the primary B70+ business owner. Where there is no single owner, such as for a foundational capability, a B70+ owner who uses the capability or owns the relevant process may provide the attestation.")
     heading(doc, "Ongoing Monitoring Plan", level=2)
     doc.add_paragraph("Submit the ongoing monitoring plan with defined metrics, thresholds, cadence, action triggers, and evidence-retention expectations.")
     attachment_card(doc, "Ongoing Monitoring Plan.docx", "Completed monitoring cadence, thresholds, and action plan")
-    heading(doc, "Mandatory Controls", level=2)
+    doc.add_page_break(); p = heading(doc, "Mandatory Controls", level=2); add_footnote_marker(p, 2)
     for item in [
         "User access controls and appropriate AI-use disclaimers.",
         "Incident reporting, fallback, and backup options.",
@@ -480,40 +492,43 @@ def add_submission_content(doc, data, result):
     ]: doc.add_paragraph(item, style="List Bullet")
 
     if routed["needs_assessment"]:
-        doc.add_page_break(); heading(doc, "Section 2: Model Impact Category Assessment")
+        doc.add_page_break(); heading(doc, "Section 2: Model Risk Tier Assessment")
         p = doc.add_paragraph(); p.add_run("Who are the intended end users of this use case? (Select one)").bold = True
         option_line(doc, data.get("endUsers") == "none", "No direct end users / foundational capability")
         option_line(doc, data.get("endUsers") == "customer", "Customer-facing or applied to customer-impacting decisions")
         option_line(doc, data.get("endUsers") == "internal", "Internal colleagues")
-        heading(doc, "A – Business Impact", level=2)
-        bands = BUSINESS_RULES[data["businessProcess"]][data["quantDriver"]]
-        chosen = {"small": bands[0], "medium": bands[1], "large": bands[2]}[data["impactThreshold"]]
-        grid_table(doc, ["Business Process", "Quantitative Driver", "Band", "Threshold"], [[data["businessProcess"], data["quantDriver"], data["impactThreshold"].title(), chosen]], [2.0, 2.0, 1.0, 1.8])
-        heading(doc, "B – Business Importance", level=2)
-        option_line(doc, data.get("reliance") == "direct", "Direct reliance / automated decision")
+        heading(doc, "A. Business Impact (Quantitative)", level=2)
+        impact_rows = []
+        for process, drivers in BUSINESS_RULES.items():
+            for driver, bands in drivers.items():
+                chosen = process == data.get("businessProcess") and driver == data.get("quantDriver")
+                for band_name, threshold, key in (("Large", bands[2], "large"), ("Medium", bands[1], "medium"), ("Small", bands[0], "small")):
+                    impact_rows.append([f"{'☒' if chosen else '☐'} {process}", f"{'☒' if chosen else '☐'} {driver}", f"{'☒' if chosen and data.get('impactThreshold') == key else '☐'} {band_name}: {threshold}"])
+        grid_table(doc, ["Business Process", "Quantitative Driver (annual)", "Quantitative Threshold"], impact_rows, [1.95, 2.25, 2.6], header_fill=LIGHT_BLUE)
+        p = doc.add_paragraph("All quantitative driver metrics—including action volume, gross contribution margin, pre-tax income, and related measures—are measured on an annual basis."); p.runs[0].italic = True; p.runs[0].font.size = Pt(9)
+        p = doc.add_paragraph("Adverse Action Volume is the number of customers adversely impacted. Alert Volume is measured by entities screened for screening models and by alerts or cases evaluated for true-match/false-positive models. If no traditional metric is available, estimate and report pre-tax income impact."); p.runs[0].italic = True; p.runs[0].font.size = Pt(9)
+        heading(doc, "B. Business Importance (Qualitative)", level=2)
+        direct_p = option_line(doc, data.get("reliance") == "direct", "Direct reliance / automated decision"); add_footnote_marker(direct_p, 3)
         option_line(doc, data.get("reliance") == "human", "Human review or fallback")
         option_line(doc, data.get("reliance") == "multiple", "Multiple reviews / recommendation only")
-        heading(doc, "C – Complexity", level=2)
-        p = doc.add_paragraph(); p.add_run("C1 – Explainability feasible?").bold = True
-        option_line(doc, data.get("explainable") == "yes", "Yes"); option_line(doc, data.get("explainable") == "no", "No")
-        p = doc.add_paragraph(); p.add_run("C2 – Foundational model fine-tuned?").bold = True
-        option_line(doc, data.get("fineTuned") == "yes", "Yes"); option_line(doc, data.get("fineTuned") == "no", "No")
-        p = doc.add_paragraph(); p.add_run("C3 – More than two sequential LLM calls?").bold = True
-        option_line(doc, data.get("multiCall") == "yes", "Yes"); option_line(doc, data.get("multiCall") == "no", "No")
-        heading(doc, "D – Interdependency", level=2)
+        heading(doc, "C. Model Complexity", level=2)
+        p = doc.add_paragraph(); p.paragraph_format.keep_with_next = True; p.add_run("C1 – Explainability feasible?").bold = True
+        first = option_line(doc, data.get("explainable") == "yes", "Yes"); first.paragraph_format.keep_with_next = True; option_line(doc, data.get("explainable") == "no", "No")
+        p = doc.add_paragraph(); p.paragraph_format.keep_with_next = True; p.add_run("C2 – Foundational model fine-tuned?").bold = True
+        first = option_line(doc, data.get("fineTuned") == "yes", "Yes"); first.paragraph_format.keep_with_next = True; option_line(doc, data.get("fineTuned") == "no", "No")
+        p = doc.add_paragraph(); p.paragraph_format.keep_with_next = True; p.add_run("C3 – More than two sequential LLM calls?").bold = True
+        first = option_line(doc, data.get("multiCall") == "yes", "Yes"); first.paragraph_format.keep_with_next = True; option_line(doc, data.get("multiCall") == "no", "No")
+        heading(doc, "D. Interdependency", level=2)
         option_line(doc, data.get("downstream") == "none", "0–1 downstream dependencies")
         option_line(doc, data.get("downstream") == "some", "2–5 downstream dependencies")
         option_line(doc, data.get("downstream") == "many", "6+ downstream dependencies")
         components = result["components"]
         grid_table(doc, ["qn (40%)", "ql (40%)", "cx (10%)", "dd (10%)", "MIC"], [[components["qn"], components["ql"], components["cx"], components["dd"], f"{result['score']:.2f}"]], [1.25, 1.25, 1.25, 1.25, 1.3], header_fill=LIGHT_BLUE)
-        p = doc.add_paragraph(); set_paragraph_border(p); p.add_run("Recommended MIC Category: ").bold = True; p.add_run(result["tier"]).bold = True
+        p = doc.add_paragraph(); set_paragraph_border(p); p.add_run("Model Impact Category: ").bold = True; p.add_run(result["tier"]).bold = True
         p = doc.add_paragraph("MIC = 0.4 × qn + 0.4 × ql + 0.1 × cx + 0.1 × dd. Bands: Low < 1.2; Medium < 1.8; High < 2.2; Critical ≥ 2.2.")
         p.runs[0].font.size = Pt(9); p.runs[0].italic = True
 
-    doc.add_page_break(); heading(doc, "Business Impact Threshold Reference")
-    reference_rows = [[process, driver, bands[0], bands[1], bands[2]] for process, drivers in BUSINESS_RULES.items() for driver, bands in drivers.items()]
-    grid_table(doc, ["Business Process", "Quantitative Driver", "Small", "Medium", "Large"], reference_rows, [1.5, 1.75, 1.1, 1.25, 1.1], header_fill=LIGHT_BLUE)
-    heading(doc, "Pre-Tax Income Productivity Reference", level=2)
+    doc.add_page_break(); heading(doc, "Appendix: Sample Pre-Tax Income Estimation")
     doc.add_paragraph("For productivity and efficiency use cases, estimate annual pre-tax income impact using documented time saved, affected colleague or customer volumes, adoption, and applicable loaded cost or value assumptions. Retain the calculation and assumptions with the submission.")
 
     heading(doc, "Supporting Files in Submission ZIP", level=2)
@@ -522,7 +537,75 @@ def add_submission_content(doc, data, result):
         p = doc.add_paragraph(style="List Bullet"); p.add_run(name).bold = True
 
 
-def build_primary(data, result, path):
+FOOTNOTE_TEXT = {
+    1: "Customer-facing GenAI use cases are assessed based on whether the model output is used for direct decisioning in AXP’s core lending and payments business, as such models may lead to potential customer impact or harm. The extent of impact is determined through the structured risk assessment in Section 2, while non-core business use cases that do not affect customers’ ability to access credit or make payments are considered to have minimal customer impact or harm.",
+    2: "Mandatory controls include but are not limited to: User access control; disclaimers to inform use of AI; incident reporting or backup options in case of discontinuation or disruption of service; usage of approved upstream models (if applicable); prevention of sensitive data leakage and blocking of harmful content, e.g., AI Firewall; and robust implementation and change management controls, including segregated development, test, and production environments, release approvals, and a rollback path.",
+    3: "Model outputs that directly inform or result in a business decision or action must be subject to review by a subject-matter expert for each applicable case prior to use. For outputs that are informational, advisory, or otherwise do not drive business decisions or actions, subject-matter expert review may be performed on a sample to ascertain model accuracy.",
+}
+
+
+def patch_word_package(path, embeddings=(), footnote_texts=None):
+    footnote_texts = FOOTNOTE_TEXT if footnote_texts is None else footnote_texts
+    ns = {
+        "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+        "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+        "v": "urn:schemas-microsoft-com:vml",
+        "o": "urn:schemas-microsoft-com:office:office",
+        "pr": "http://schemas.openxmlformats.org/package/2006/relationships",
+        "ct": "http://schemas.openxmlformats.org/package/2006/content-types",
+    }
+    with tempfile.TemporaryDirectory() as unpack:
+        root = Path(unpack)
+        with zipfile.ZipFile(path) as zf: zf.extractall(root)
+        document_path = root / "word/document.xml"
+        document = LET.parse(str(document_path)); document_root = document.getroot()
+        for number in footnote_texts:
+            for text_node in document_root.xpath(f"//w:t[text()='[[FN{number}]]']", namespaces=ns):
+                run = text_node.getparent()
+                for child in list(run):
+                    if child.tag != f"{{{ns['w']}}}rPr": run.remove(child)
+                ref = LET.SubElement(run, f"{{{ns['w']}}}footnoteReference"); ref.set(f"{{{ns['w']}}}id", str(number))
+        for index, item in enumerate(embeddings, 1):
+            marker = f"[[EMBED{index}]]"
+            for text_node in document_root.xpath(f"//w:t[text()='{marker}']", namespaces=ns):
+                run = text_node.getparent()
+                for child in list(run):
+                    if child.tag != f"{{{ns['w']}}}rPr": run.remove(child)
+                ext = item["filename"].rsplit(".", 1)[-1].lower()
+                prog_id = "Excel.Sheet.12" if ext == "xlsx" else "Word.Document.12" if ext == "docx" else "Package"
+                shape_id = f"_x0000_i{1100 + index}"
+                object_xml = LET.fromstring(f'''<w:object xmlns:w="{ns['w']}" xmlns:r="{ns['r']}" xmlns:v="{ns['v']}" xmlns:o="{ns['o']}" w:dxaOrig="1200" w:dyaOrig="650"><v:shape id="{shape_id}" type="#_x0000_t75" style="width:60pt;height:34pt" o:ole=""><v:fill color="E7E6E6"/><v:stroke color="7F7F7F"/><v:textbox inset="2pt,2pt,2pt,2pt"><w:txbxContent><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="{BLUE}"/><w:sz w:val="16"/></w:rPr><w:t>{ext.upper()}</w:t></w:r></w:p></w:txbxContent></v:textbox></v:shape><o:OLEObject Type="Embed" ProgID="{prog_id}" ShapeID="{shape_id}" DrawAspect="Icon" ObjectID="_{1200000000 + index}" r:id="rIdEmbed{index}"/></w:object>''')
+                run.append(object_xml)
+        document.write(str(document_path), encoding="UTF-8", xml_declaration=True, standalone=True)
+
+        footnotes = LET.Element(f"{{{ns['w']}}}footnotes", nsmap={"w": ns["w"]})
+        for note_id, note_type in ((-1, "separator"), (0, "continuationSeparator")):
+            node = LET.SubElement(footnotes, f"{{{ns['w']}}}footnote"); node.set(f"{{{ns['w']}}}id", str(note_id)); node.set(f"{{{ns['w']}}}type", note_type)
+            p = LET.SubElement(node, f"{{{ns['w']}}}p"); run = LET.SubElement(p, f"{{{ns['w']}}}r"); LET.SubElement(run, f"{{{ns['w']}}}{note_type}")
+        for note_id, note_text in footnote_texts.items():
+            note = LET.SubElement(footnotes, f"{{{ns['w']}}}footnote"); note.set(f"{{{ns['w']}}}id", str(note_id))
+            p = LET.SubElement(note, f"{{{ns['w']}}}p"); run = LET.SubElement(p, f"{{{ns['w']}}}r"); LET.SubElement(run, f"{{{ns['w']}}}footnoteReference")
+            text_run = LET.SubElement(p, f"{{{ns['w']}}}r"); text = LET.SubElement(text_run, f"{{{ns['w']}}}t"); text.text = " " + note_text
+        LET.ElementTree(footnotes).write(str(root / "word/footnotes.xml"), encoding="UTF-8", xml_declaration=True, standalone=True)
+
+        rels_path = root / "word/_rels/document.xml.rels"; rels = LET.parse(str(rels_path)); rels_root = rels.getroot()
+        rel = LET.SubElement(rels_root, f"{{{ns['pr']}}}Relationship"); rel.set("Id", "rIdFootnotes"); rel.set("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes"); rel.set("Target", "footnotes.xml")
+        embeddings_dir = root / "word/embeddings"; embeddings_dir.mkdir(exist_ok=True)
+        content_types = LET.parse(str(root / "[Content_Types].xml")); types_root = content_types.getroot()
+        override = LET.SubElement(types_root, f"{{{ns['ct']}}}Override"); override.set("PartName", "/word/footnotes.xml"); override.set("ContentType", "application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml")
+        for index, item in enumerate(embeddings, 1):
+            ext = item["filename"].rsplit(".", 1)[-1].lower(); target_name = f"embedded{index}.{ext}"
+            shutil.copy2(item["path"], embeddings_dir / target_name)
+            rel = LET.SubElement(rels_root, f"{{{ns['pr']}}}Relationship"); rel.set("Id", f"rIdEmbed{index}"); rel.set("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/package"); rel.set("Target", f"embeddings/{target_name}")
+            override = LET.SubElement(types_root, f"{{{ns['ct']}}}Override"); override.set("PartName", f"/word/embeddings/{target_name}"); override.set("ContentType", item["content_type"])
+        rels.write(str(rels_path), encoding="UTF-8", xml_declaration=True, standalone=True)
+        content_types.write(str(root / "[Content_Types].xml"), encoding="UTF-8", xml_declaration=True, standalone=True)
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+            for file in sorted(root.rglob("*")):
+                if file.is_file(): zf.write(file, file.relative_to(root))
+
+
+def build_primary(data, result, path, embeddings):
     if SOURCE_DOCM.exists():
         shutil.copy2(SOURCE_DOCM, path)
         with tempfile.TemporaryDirectory() as tmp:
@@ -540,6 +623,7 @@ def build_primary(data, result, path):
                         if item.is_file(): zf.write(item, item.relative_to(root))
     else:
         doc = base_document("GenAI Model Risk Tiering Framework"); add_submission_content(doc, data, result); doc.save(path)
+    patch_word_package(path, embeddings)
 
 
 def generate(data: dict, output_dir: Path | None = None) -> dict:
@@ -552,10 +636,9 @@ def generate(data: dict, output_dir: Path | None = None) -> dict:
     primary = output_dir / f"MRMG First Line Submission{'.docm' if SOURCE_DOCM.exists() else '.docx'}"; json_path = output_dir / "submission.json"
     serializable = {key: value for key, value in enriched.items() if key != "supportingFiles"}
     serializable["supportingFileNames"] = [item.get("name") for item in as_list(enriched.get("supportingFiles"))]
-    json_path.write_text(json.dumps(serializable, indent=2), encoding="utf-8"); build_prompt_doc(enriched, prompt); build_monitoring_doc(enriched, monitoring); build_attestation_doc(enriched, attestation_path); build_b70_email(enriched, b70_email)
+    json_path.write_text(json.dumps(serializable, indent=2), encoding="utf-8"); build_prompt_doc(enriched, prompt); build_monitoring_doc(enriched, monitoring); build_attestation_doc(enriched, attestation_path); patch_word_package(attestation_path, footnote_texts={1: FOOTNOTE_TEXT[2]})
     env = os.environ.copy(); env["NODE_PATH"] = str(NODE_MODULES)
     subprocess.run([str(NODE), str(ROOT / "generate_workbook.mjs"), str(json_path), str(workbook)], check=True, env=env, capture_output=True, text=True)
-    build_primary(enriched, result, primary)
     optional_paths = []
     if as_list(enriched.get("supportingFiles")):
         supporting_dir = output_dir / "Supporting Documents"; supporting_dir.mkdir(exist_ok=True)
@@ -564,6 +647,19 @@ def generate(data: dict, output_dir: Path | None = None) -> dict:
             target = supporting_dir / safe_name
             if target.exists(): target = supporting_dir / f"{index}-{safe_name}"
             target.write_bytes(base64.b64decode(item["data"], validate=True)); optional_paths.append(target)
+    embeddings = [
+        {"filename": workbook.name, "path": workbook, "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
+        {"filename": prompt.name, "path": prompt, "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+        {"filename": attestation_path.name, "path": attestation_path, "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+        {"filename": monitoring.name, "path": monitoring, "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+    ]
+    embeddings.extend({"filename": item.name, "path": item, "content_type": mimetypes.guess_type(item.name)[0] or "application/octet-stream"} for item in optional_paths)
+    build_primary(enriched, result, primary, embeddings)
+    build_b70_email(enriched, b70_email, [
+        {"filename": primary.name, "path": primary, "content_type": "application/vnd.ms-word.document.macroEnabled.12" if primary.suffix == ".docm" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+        {"filename": workbook.name, "path": workbook, "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
+        {"filename": monitoring.name, "path": monitoring, "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+    ])
     package = output_dir / f"{slug}-mrmg-submission.zip"
     with zipfile.ZipFile(package, "w", zipfile.ZIP_DEFLATED) as zf:
         for item in [primary, workbook, prompt, monitoring, attestation_path, b70_email, json_path]: zf.write(item, item.name)

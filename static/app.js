@@ -27,13 +27,13 @@ const promptFields = ["promptCallName", "promptCallPurpose", "promptCallText", "
 const metricFields = ["metricName", "metricValue", "metricRationale", "metricGreen", "metricAmber", "metricRed"];
 const fieldLabels = {
   solutionType: "GenAI solution type", regulatory: "Regulatory reporting use", purpose: "Purpose and business usage",
-  useCaseName: "Use case name", modelOwner: "Model owner", businessUnit: "Business unit", implementationDate: "Implementation date", markets: "At least one market", otherMarket: "Other market", overview: "Use case overview", modelInputs: "Model inputs", generatedOutputs: "Generated outputs", modelName: "Model name", modelVersion: "Model version", hosting: "Hosting location", agentic: "Agentic AI response",
+  useCaseName: "Use case name", modelOwner: "Model owner", modelOwnerEmail: "Model owner email", businessUnit: "Business unit", implementationDate: "Implementation date", markets: "At least one market", otherMarket: "Other market", overview: "Use case overview", modelInputs: "Model inputs", generatedOutputs: "Generated outputs", modelName: "Model name", modelVersion: "Model version", hosting: "Hosting location", agentic: "Agentic AI response",
   endUsers: "Intended end users", businessProcess: "Business process", quantDriver: "Valid quantitative driver", impactThreshold: "Annual impact threshold", reliance: "Business importance / reliance", explainable: "Explainability", fineTuned: "Fine-tuning", multiCall: "Sequential LLM calls", downstream: "Downstream interdependency",
   sampleSize: "Sample size", metrics: "At least one complete performance metric", promptCalls: "Complete documentation for every LLM call", monitoringFrequency: "Monitoring frequency", attestation: "All five B70+ attestations", businessOwnerName: "B70+ business owner", businessOwnerTitle: "B70+ title", businessOwnerEmail: "B70+ email",
 };
 const stepForField = Object.fromEntries([
   ["routing", ["solutionType", "regulatory", "purpose"]],
-  ["details", ["useCaseName", "modelOwner", "businessUnit", "implementationDate", "markets", "otherMarket", "overview", "modelInputs", "generatedOutputs", "modelName", "modelVersion", "hosting", "agentic"]],
+  ["details", ["useCaseName", "modelOwner", "modelOwnerEmail", "businessUnit", "implementationDate", "markets", "otherMarket", "overview", "modelInputs", "generatedOutputs", "modelName", "modelVersion", "hosting", "agentic"]],
   ["assessment", ["endUsers", "businessProcess", "quantDriver", "impactThreshold", "reliance", "explainable", "fineTuned", "multiCall", "downstream"]],
   ["evidence", ["sampleSize", "metrics", "promptCalls", "monitoringFrequency", "attestation", "businessOwnerName", "businessOwnerTitle", "businessOwnerEmail"]],
 ].flatMap(([stepId, names]) => names.map(name => [name, stepId])));
@@ -132,7 +132,7 @@ function renderDecision() {
 function requirementList(data = formData()) {
   const required = ["solutionType"];
   if (data.solutionType !== "general") required.push("regulatory", "purpose");
-  required.push("useCaseName", "modelOwner", "businessUnit", "implementationDate", "markets", "overview", "modelInputs", "generatedOutputs", "modelName", "modelVersion", "hosting", "agentic");
+  required.push("useCaseName", "modelOwner", "modelOwnerEmail", "businessUnit", "implementationDate", "markets", "overview", "modelInputs", "generatedOutputs", "modelName", "modelVersion", "hosting", "agentic");
   if (values(data.markets).includes("Other")) required.push("otherMarket");
   if (route(data).needsAssessment) required.push("endUsers", "businessProcess", "quantDriver", "impactThreshold", "reliance", "explainable", "fineTuned", "multiCall", "downstream");
   required.push("sampleSize", "metrics", "promptCalls", "monitoringFrequency", "attestation", "businessOwnerName", "businessOwnerTitle", "businessOwnerEmail");

@@ -38,6 +38,11 @@ const BUSINESS_RULES = {
     "Pre-Tax Income": ["≤ $5M", "$5M–$11M", "> $11M"],
   },
 };
+const FOOTNOTES = [
+  "Customer-facing GenAI use cases are assessed based on whether the model output is used for direct decisioning in AXP’s core lending and payments business, as such models may lead to potential customer impact or harm. The extent of impact is determined through the structured risk assessment in Section 2, while non-core business use cases that do not affect customers’ ability to access credit or make payments are considered to have minimal customer impact or harm.",
+  "Mandatory controls include but are not limited to: User access control; disclaimers to inform use of AI; incident reporting or backup options in case of discontinuation or disruption of service; usage of approved upstream models (if applicable); prevention of sensitive data leakage and blocking of harmful content, e.g., AI Firewall; and robust implementation and change management controls, including segregated development, test, and production environments, release approvals, and a rollback path.",
+  "Model outputs that directly inform or result in a business decision or action must be subject to review by a subject-matter expert for each applicable case prior to use. For outputs that are informational, advisory, or otherwise do not drive business decisions or actions, subject-matter expert review may be performed on a sample to ascertain model accuracy.",
+];
 
 function x(value) {
   return String(value ?? "").replace(/[&<>\"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char]));
@@ -92,7 +97,7 @@ function p(content = "", options = {}) {
 }
 function heading(text, level = 1) { return p(text, { style: level === 1 ? "Heading1" : "Heading2", before: level === 1 ? 180 : 120, after: 100, keepNext: true }); }
 function prompt(number, text) { return p(r(`${number}.   ${text}`, { bold: true }), { raw: true, before: 150, after: 80, keepNext: true }); }
-function option(selected, text, italic = false) { return p(`${selected ? "☒" : "☐"}   ${text}`, { italic, indent: 480, hanging: 60, after: 65, leftBorder: selected }); }
+function option(selected, text, italic = false, keepNext = false) { return p(`${selected ? "☒" : "☐"}   ${text}`, { italic, indent: 480, hanging: 60, after: 65, leftBorder: selected, keepNext }); }
 function bullet(text, options = {}) { return p(r("•  ", { bold: options.bold }) + r(text, options), { raw: true, indent: 520, hanging: 260, after: 65 }); }
 function pageBreak() { return `<w:p><w:r><w:br w:type="page"/></w:r></w:p>`; }
 
@@ -106,7 +111,7 @@ function tc(value, options = {}) {
 function table(rows, options = {}) {
   const widths = options.widths || rows[0].map(() => Math.floor(9400 / rows[0].length));
   const grid = widths.map(width => `<w:gridCol w:w="${width}"/>`).join("");
-  const tr = rows.map((row, rowIndex) => `<w:tr>${row.map((value, columnIndex) => tc(value, {
+  const tr = rows.map((row, rowIndex) => `<w:tr><w:trPr><w:cantSplit/>${rowIndex === 0 ? "<w:tblHeader/>" : ""}</w:trPr>${row.map((value, columnIndex) => tc(value, {
     width: widths[columnIndex], fill: rowIndex === 0 ? (options.headerFill || COLORS.lightBlue) : "",
     bold: rowIndex === 0 || (options.boldFirstColumn && columnIndex === 0),
     color: rowIndex === 0 && options.headerFill === COLORS.navy ? "FFFFFF" : COLORS.ink,
@@ -121,14 +126,55 @@ function attachmentCard(filename, description) {
   return `<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid><w:gridCol w:w="800"/><w:gridCol w:w="8600"/></w:tblGrid><w:tr>${tc("FILE", { width: 800, fill: "E7E6E6", bold: true, color: COLORS.blue, size: 8, align: "center" })}${tc(filename + "\n" + description, { width: 8600, size: 9 })}</w:tr></w:tbl>`;
 }
 
-async function makeDocx(title, body) {
+function footnoteReference(id) {
+  return `<w:r><w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr><w:footnoteReference w:id="${id}"/></w:r>`;
+}
+
+function embeddedObject(index, filename, description) {
+  const shapeId = `_x0000_i${1100 + index}`;
+  const extension = filename.split(".").pop().toUpperCase();
+  return `<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid><w:gridCol w:w="1450"/><w:gridCol w:w="7950"/></w:tblGrid><w:tr><w:tc><w:tcPr><w:tcW w:w="1450" w:type="dxa"/><w:tcBorders><w:top w:val="single" w:sz="5" w:color="BFBFBF"/><w:left w:val="single" w:sz="5" w:color="BFBFBF"/><w:bottom w:val="single" w:sz="5" w:color="BFBFBF"/><w:right w:val="single" w:sz="5" w:color="BFBFBF"/></w:tcBorders><w:shd w:fill="E7E6E6"/><w:vAlign w:val="center"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr><w:r><w:object w:dxaOrig="1200" w:dyaOrig="650"><v:shape id="${shapeId}" type="#_x0000_t75" style="width:60pt;height:34pt" o:ole=""><v:fill color="E7E6E6"/><v:stroke color="7F7F7F"/><v:textbox inset="2pt,2pt,2pt,2pt"><w:txbxContent><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr>${r(extension, { bold: true, color: COLORS.blue, size: 8 })}</w:p></w:txbxContent></v:textbox></v:shape><o:OLEObject Type="Embed" ProgID="${extension === "XLSX" ? "Excel.Sheet.12" : extension === "DOCX" ? "Word.Document.12" : "Package"}" ShapeID="${shapeId}" DrawAspect="Icon" ObjectID="_${1200000000 + index}" r:id="rIdEmbed${index}"/></w:object></w:r></w:p></w:tc>${tc(filename + "\n" + description + "\nDouble-click the object icon to open the embedded file.", { width: 7950, size: 9 })}</w:tr></w:tbl>`;
+}
+
+function businessImpactTable(data) {
+  const rows = [["Business Process", "Quantitative Driver (annual)", "Quantitative Threshold"]];
+  for (const [process, drivers] of Object.entries(BUSINESS_RULES)) {
+    for (const [driver, bands] of Object.entries(drivers)) {
+      [["Large", bands[2], "large"], ["Medium", bands[1], "medium"], ["Small", bands[0], "small"]].forEach(([band, threshold, key]) => {
+        const chosen = process === data.businessProcess && driver === data.quantDriver;
+        rows.push([
+          `${chosen ? "☒" : "☐"} ${process}`,
+          `${chosen ? "☒" : "☐"} ${driver}`,
+          `${chosen && data.impactThreshold === key ? "☒" : "☐"} ${band}: ${threshold}`,
+        ]);
+      });
+    }
+  }
+  return table(rows, { widths: [2700, 3100, 3600], headerFill: COLORS.lightBlue });
+}
+
+function mimeFor(filename) {
+  const ext = filename.split(".").pop().toLowerCase();
+  return ({ docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", pdf: "application/pdf", txt: "text/plain", csv: "text/csv", json: "application/json" })[ext] || "application/octet-stream";
+}
+
+function footnotesXml(notes = []) {
+  const note = (id, text) => `<w:footnote w:id="${id}"><w:p><w:pPr><w:pStyle w:val="FootnoteText"/></w:pPr><w:r><w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr><w:footnoteReference/></w:r>${r(" " + text, { size: 9 })}</w:p></w:footnote>`;
+  return `${XML}<w:footnotes xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:footnote w:type="separator" w:id="-1"><w:p><w:r><w:separator/></w:r></w:p></w:footnote><w:footnote w:type="continuationSeparator" w:id="0"><w:p><w:r><w:continuationSeparator/></w:r></w:p></w:footnote>${notes.map((text, index) => note(index + 1, text)).join("")}</w:footnotes>`;
+}
+
+async function makeDocx(title, body, embeddings = [], footnotes = []) {
   const zip = new JSZip();
-  zip.file("[Content_Types].xml", `${XML}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>`);
+  const embeddedTypes = embeddings.map((item, index) => `<Override PartName="/word/embeddings/embedded${index + 1}.${x(item.filename.split(".").pop().toLowerCase())}" ContentType="${x(item.contentType || mimeFor(item.filename))}"/>`).join("");
+  zip.file("[Content_Types].xml", `${XML}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/><Override PartName="/word/footnotes.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>${embeddedTypes}</Types>`);
   zip.folder("_rels").file(".rels", `${XML}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>`);
-  zip.folder("word").folder("_rels").file("document.xml.rels", `${XML}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/></Relationships>`);
+  const embeddedRels = embeddings.map((item, index) => `<Relationship Id="rIdEmbed${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/package" Target="embeddings/embedded${index + 1}.${x(item.filename.split(".").pop().toLowerCase())}"/>`).join("");
+  zip.folder("word").folder("_rels").file("document.xml.rels", `${XML}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/><Relationship Id="rIdFootnotes" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes" Target="footnotes.xml"/>${embeddedRels}</Relationships>`);
   zip.folder("word").file("settings.xml", `${XML}<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:zoom w:percent="100"/><w:defaultTabStop w:val="720"/><w:compat/></w:settings>`);
-  zip.folder("word").file("styles.xml", `${XML}<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:color w:val="${COLORS.ink}"/><w:sz w:val="21"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="100" w:line="240" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style><w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:after="100"/></w:pPr><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:color w:val="${COLORS.blue}"/><w:sz w:val="40"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:keepNext/><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:color w:val="${COLORS.blue}"/><w:sz w:val="31"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:keepNext/><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:b/><w:color w:val="${COLORS.ink}"/><w:sz w:val="24"/></w:rPr></w:style></w:styles>`);
-  zip.folder("word").file("document.xml", `${XML}<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${p(title, { style: "Title", after: 100 })}${body}<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="936" w:right="1296" w:bottom="936" w:left="1296" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr></w:body></w:document>`);
+  zip.folder("word").file("styles.xml", `${XML}<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:color w:val="${COLORS.ink}"/><w:sz w:val="21"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="100" w:line="240" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style><w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:after="100"/></w:pPr><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:color w:val="${COLORS.blue}"/><w:sz w:val="40"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:keepNext/><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:color w:val="${COLORS.blue}"/><w:sz w:val="31"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:keepNext/><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:b/><w:color w:val="${COLORS.ink}"/><w:sz w:val="24"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="FootnoteText"><w:name w:val="footnote text"/><w:basedOn w:val="Normal"/><w:rPr><w:sz w:val="18"/></w:rPr></w:style><w:style w:type="character" w:styleId="FootnoteReference"><w:name w:val="footnote reference"/><w:rPr><w:vertAlign w:val="superscript"/><w:sz w:val="16"/></w:rPr></w:style></w:styles>`);
+  zip.folder("word").file("footnotes.xml", footnotesXml(footnotes));
+  zip.folder("word").file("document.xml", `${XML}<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"><w:body>${p(title, { style: "Title", after: 100 })}${body}<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="936" w:right="1296" w:bottom="936" w:left="1296" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr></w:body></w:document>`);
+  for (const [index, item] of embeddings.entries()) zip.folder("word").folder("embeddings").file(`embedded${index + 1}.${item.filename.split(".").pop().toLowerCase()}`, item.data);
   const props = zip.folder("docProps");
   props.file("core.xml", `${XML}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${x(title)}</dc:title><dc:creator>MRMG First Line Portal</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString()}</dcterms:created></cp:coreProperties>`);
   props.file("app.xml", `${XML}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>MRMG First Line Portal</Application></Properties>`);
@@ -162,56 +208,52 @@ function primaryBody(data) {
   body += pageBreak() + heading("Section 1: GenAI Low Impact Model Document Questionnaire") + heading("Model Details", 2);
   body += p("Select all markets in which the model is currently used or expected to be used at go-live (select all that apply):", { bold: true });
   body += option(markets.includes("US"), "US") + option(markets.includes("EU"), "EU*") + option(markets.includes("Other"), `Other – Please specify: ${markets.includes("Other") ? data.otherMarket || "" : ""}`);
-  body += p("* If the use case is used in the EU market, the model owner should assess whether the use case falls under Prohibited AI practices or High-risk AI systems under the EU AI Act. The B70+ attestation should confirm the result.", { italic: true, size: 9 });
+  body += p(r("Customer-facing routing and impact are evaluated under the framework", { italic: true, size: 9 }) + footnoteReference(1), { raw: true });
   body += prompt(1, "Please provide the name and an overview of the use case along with a summary of model inputs and outputs.");
   body += lineValue("Use Case Name:", data.useCaseName) + lineValue("Overview:", data.overview);
   body += table([["Model Inputs", "Generated Outputs"], [data.modelInputs, data.generatedOutputs]], { widths: [4700, 4700], headerFill: COLORS.lightBlue });
   body += p("Optional Supporting documents", { bold: true, before: 120, after: 60 });
   body += p("If applicable, attach supporting workflow, control, or use-case documentation. " + (list(data.supportingFileNames).length ? `Included in this ZIP: ${list(data.supportingFileNames).join(", ")}.` : "No optional supporting files were supplied."));
+  list(data.supportingFileNames).forEach((name, index) => { body += embeddedObject(index + 5, name, "Optional supporting evidence supplied with this submission"); });
   body += prompt(2, "GenAI technology: Please provide the Generative AI model leveraged, hosting location, and whether the use case is implemented as an Agentic AI.");
   body += lineValue("Model Name:", data.modelName) + lineValue("Model Version:", data.modelVersion);
   body += lineValue("Hosting Location:", data.hosting === "axp" ? "Model inference runs within an AXP-governed platform" : "Third-party governed platform where data handling is governed outside AXP");
   body += p("Agentic AI?", { bold: true, before: 100, after: 40 }) + option(data.agentic === "yes", "Yes") + option(data.agentic === "no", "No");
   body += prompt(3, "Please attach the model validation results, including:");
   for (const item of ["Prompts (applicable for in-house developed use cases)", "Sample size reviewed", "Performance indicators used (e.g., model accuracy, output quality, user acceptance)", "Outcome analysis"]) body += bullet(item);
-  body += attachmentCard("Outcome Analysis.xlsx", "Completed validation results and metric rationale") + attachmentCard("Prompt Submission Template.docx", "Completed prompt wording, constraints, outputs, and revision history");
+  body += embeddedObject(1, "Outcome Analysis.xlsx", "Completed validation results and metric rationale") + embeddedObject(2, "Prompt Submission Template.docx", "Completed prompt wording, constraints, outputs, and revision history");
   body += prompt(4, "What is the planned implementation date for the use case?") + lineValue("Implementation Date:", formatDate(data.implementationDate));
 
-  body += pageBreak() + heading("5. Additional Details Required") + heading("B70+ Business Attestation", 2);
+  body += heading("5. Additional Details Required") + heading("B70+ Business Attestation", 2);
   body += p("Attach an email from the business B70+ confirming that:");
   for (const item of ATTESTATIONS) body += bullet(item);
-  body += attachmentCard("B70+ Attestation Template.docx", "Completed Word attestation from the named B70+ business owner");
-  body += attachmentCard("B70+ Attestation Email.eml", "Ready-to-send draft email from the named B70+ business owner");
+  body += embeddedObject(3, "B70+ Attestation Template.docx", "Formal attestation for the named B70+ business owner to review and approve");
   body += p("The attestation may be provided by the primary B70+ business owner. Where there is no single owner, such as for a foundational capability, a B70+ owner who uses the capability or owns the relevant process may provide the attestation.", { italic: true, size: 9 });
   body += heading("Ongoing Monitoring Plan", 2) + p("Submit the ongoing monitoring plan with defined metrics, thresholds, cadence, action triggers, and evidence-retention expectations.");
-  body += attachmentCard("Ongoing Monitoring Plan.docx", "Completed monitoring cadence, thresholds, and action plan");
-  body += heading("Mandatory Controls", 2);
+  body += embeddedObject(4, "Ongoing Monitoring Plan.docx", "Completed monitoring cadence, thresholds, and action plan");
+  body += pageBreak() + heading("Mandatory Controls", 2) + p(r("The following controls are required", { bold: true }) + footnoteReference(2), { raw: true });
   for (const item of ["User access controls and appropriate AI-use disclaimers.", "Incident reporting, fallback, and backup options.", "Approved upstream models and governed hosting arrangements.", "Controls preventing sensitive-data leakage and harmful content.", "Robust implementation, testing, monitoring, and change-management controls."]) body += bullet(item);
 
   if (data.section2Included) {
     const components = data.assessmentComponents || {};
-    body += pageBreak() + heading("Section 2: Model Impact Category Assessment");
+    body += pageBreak() + heading("Section 2: Model Risk Tier Assessment");
     body += p("Who are the intended end users of this use case? (Select one)", { bold: true });
     body += option(data.endUsers === "none", "No direct end users / foundational capability") + option(data.endUsers === "customer", "Customer-facing or applied to customer-impacting decisions") + option(data.endUsers === "internal", "Internal colleagues");
-    body += heading("A – Business Impact", 2);
-    const bands = BUSINESS_RULES[data.businessProcess]?.[data.quantDriver] || ["", "", ""];
-    const bandIndex = { small: 0, medium: 1, large: 2 }[data.impactThreshold] ?? 0;
-    body += table([["Business Process", "Quantitative Driver", "Band", "Threshold"], [data.businessProcess, data.quantDriver, label(data.impactThreshold, { small: "Small", medium: "Medium", large: "Large" }), bands[bandIndex]]], { widths: [2800, 2800, 1400, 2400], headerFill: COLORS.lightBlue });
-    body += heading("B – Business Importance", 2) + option(data.reliance === "direct", "Direct reliance / automated decision") + option(data.reliance === "human", "Human review or fallback") + option(data.reliance === "multiple", "Multiple reviews / recommendation only");
-    body += heading("C – Complexity", 2) + p("C1 – Explainability feasible?", { bold: true }) + option(data.explainable === "yes", "Yes") + option(data.explainable === "no", "No");
-    body += p("C2 – Foundational model fine-tuned?", { bold: true }) + option(data.fineTuned === "yes", "Yes") + option(data.fineTuned === "no", "No");
-    body += p("C3 – More than two sequential LLM calls?", { bold: true }) + option(data.multiCall === "yes", "Yes") + option(data.multiCall === "no", "No");
-    body += heading("D – Interdependency", 2) + option(data.downstream === "none", "0–1 downstream dependencies") + option(data.downstream === "some", "2–5 downstream dependencies") + option(data.downstream === "many", "6+ downstream dependencies");
+    body += heading("A. Business Impact (Quantitative)", 2) + businessImpactTable(data);
+    body += p("All quantitative driver metrics—including action volume, gross contribution margin, pre-tax income, and related measures—are measured on an annual basis.", { italic: true, size: 9 });
+    body += p("Adverse Action Volume is the number of customers adversely impacted (for example, pended or declined transactions or applications). Alert Volume is measured by entities screened for screening models and by alerts or cases evaluated for true-match/false-positive models. If no traditional metric is available, estimate and report pre-tax income impact.", { italic: true, size: 9 });
+    body += heading("B. Business Importance (Qualitative)", 2) + option(data.reliance === "direct", "Direct reliance / automated decision") + option(data.reliance === "human", "Human review or fallback") + option(data.reliance === "multiple", "Multiple reviews / recommendation only");
+    body += p(r("Subject-matter expert review requirements apply to model outputs", { italic: true, size: 9 }) + footnoteReference(3), { raw: true });
+    body += heading("C. Model Complexity", 2) + p("C1 – Explainability feasible?", { bold: true, keepNext: true }) + option(data.explainable === "yes", "Yes", false, true) + option(data.explainable === "no", "No");
+    body += p("C2 – Foundational model fine-tuned?", { bold: true, keepNext: true }) + option(data.fineTuned === "yes", "Yes", false, true) + option(data.fineTuned === "no", "No");
+    body += p("C3 – More than two sequential LLM calls?", { bold: true, keepNext: true }) + option(data.multiCall === "yes", "Yes", false, true) + option(data.multiCall === "no", "No");
+    body += heading("D. Interdependency", 2) + option(data.downstream === "none", "0–1 downstream dependencies") + option(data.downstream === "some", "2–5 downstream dependencies") + option(data.downstream === "many", "6+ downstream dependencies");
     body += table([["qn (40%)", "ql (40%)", "cx (10%)", "dd (10%)", "MIC"], [components.qn, components.ql, components.cx, components.dd, Number(data.assessmentScore).toFixed(2)]], { widths: [1880, 1880, 1880, 1880, 1880], headerFill: COLORS.lightBlue });
-    body += p(r("Recommended MIC Category: ", { bold: true }) + r(data.impactTier, { bold: true }), { raw: true, leftBorder: true, before: 120 });
+    body += p(r("Model Impact Category: ", { bold: true }) + r(data.impactTier, { bold: true }), { raw: true, leftBorder: true, before: 120 });
     body += p("MIC = 0.4 × qn + 0.4 × ql + 0.1 × cx + 0.1 × dd. Bands: Low < 1.2; Medium < 1.8; High < 2.2; Critical ≥ 2.2.", { italic: true, size: 9 });
   }
 
-  body += pageBreak() + heading("Business Impact Threshold Reference");
-  const referenceRows = [["Business Process", "Quantitative Driver", "Small", "Medium", "Large"]];
-  for (const [process, drivers] of Object.entries(BUSINESS_RULES)) for (const [driver, bands] of Object.entries(drivers)) referenceRows.push([process, driver, ...bands]);
-  body += table(referenceRows, { widths: [2200, 2800, 1400, 1500, 1500], headerFill: COLORS.lightBlue });
-  body += heading("Pre-Tax Income Productivity Reference", 2) + p("For productivity and efficiency use cases, estimate annual pre-tax income impact using documented time saved, affected colleague or customer volumes, adoption, and applicable loaded cost or value assumptions. Retain the calculation and assumptions with the submission.");
+  body += pageBreak() + heading("Appendix: Sample Pre-Tax Income Estimation") + p("For productivity and efficiency use cases, estimate annual pre-tax income impact using documented time saved, affected colleague or customer volumes, adoption, and applicable loaded cost or value assumptions. Retain the calculation and assumptions with the submission.");
   body += heading("Supporting Files in Submission ZIP", 2) + p("These completed artifacts are included as separate, usable files in the submission ZIP:");
   for (const name of ["Outcome Analysis.xlsx", "Prompt Submission Template.docx", "Ongoing Monitoring Plan.docx", "B70+ Attestation Template.docx", "B70+ Attestation Email.eml", "submission.json"]) body += bullet(name, { bold: true });
   return body;
@@ -255,29 +297,59 @@ function monitoringBody(data, metrics) {
 }
 
 function attestationBody(data) {
-  let body = table([["Reference", "Details"], ["Use Case", data.useCaseName], ["Business Owner", data.businessOwnerName], ["Business Owner Email", data.businessOwnerEmail], ["Title", data.businessOwnerTitle], ["Date", todayDisplay()]], { widths: [2350, 7050], headerFill: COLORS.lightBlue, boldFirstColumn: true });
-  body += p("The business owner confirms the following attestations for the submitted GenAI use case:", { before: 160 });
-  ATTESTATIONS.forEach((item, i) => { body += p(r(`${i + 1}. `, { bold: true }) + r(item), { raw: true, indent: 240, hanging: 240 }); });
-  body += heading("Ongoing Monitoring", 2) + p(`Ongoing monitoring will be completed at least annually. The submitted plan currently specifies a ${String(data.monitoringFrequency || "annual").toLowerCase()} cadence.`);
-  body += p("For a Medium Impact customer-facing pilot, the fifth attestation may be not applicable until production use, subject to MRMG direction.", { italic: true, size: 9 });
-  body += heading("Signature", 2) + lineValue("Name:", data.businessOwnerName) + lineValue("Email:", data.businessOwnerEmail) + lineValue("Title:", data.businessOwnerTitle) + lineValue("Date:", todayDisplay());
+  let body = p(r("Subject: ", { bold: true }) + r(`B70+ Attestation for GenAI Use Case – ${data.useCaseName}`), { raw: true });
+  body += p(`Dear ${data.businessOwnerName},`) + p("To proceed with model risk certification, a formal attestation from the business owner (B70+) is required.");
+  body += p("This attestation serves as confirmation that the use case information, control environment, testing, residual risk, and ongoing monitoring plan have been reviewed and approved.");
+  body += p("Please find attached:", { bold: true });
+  ["Completed model documentation", "Outcome testing results", "Ongoing monitoring plan"].forEach(item => { body += bullet(item); });
+  body += heading("Attestation") + p("As the designated business owner, I confirm the following:");
+  const formal = [
+    ["Use Within Scope", "The model will be used only within the intended scope described in the submitted documentation."],
+    ["Mandatory Control Effectiveness and Implementation", "Mandatory controls have been tested for effectiveness and will be implemented in production."],
+    ["Testing Effectiveness", "The testing performed is appropriate for the use case and supports the conclusions documented in the submission."],
+    ["Residual Risk Acceptance", "Residual risk is understood, accepted, and within the business risk appetite."],
+    ["Ongoing Monitoring", `Ongoing monitoring will be performed at least annually; the submitted plan currently specifies a ${String(data.monitoringFrequency || "annual").toLowerCase()} cadence.`],
+  ];
+  formal.forEach(([name, text], i) => { body += p(r(`${i + 1}. ${name}\n`, { bold: true }) + r(text), { raw: true, indent: 240, hanging: 240 }); });
+  body += p(r("Mandatory controls are defined in the framework", { italic: true, size: 9 }) + footnoteReference(1), { raw: true });
+  body += heading("Approval", 2) + lineValue("Name:", data.businessOwnerName) + lineValue("Email:", data.businessOwnerEmail) + lineValue("Title:", data.businessOwnerTitle) + lineValue("Date:", todayDisplay());
   return body;
 }
 
-function makeB70Email(data) {
+function base64Lines(bytes) {
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  return btoa(binary).match(/.{1,76}/g).join("\r\n");
+}
+
+function makeB70Email(data, attachments) {
   const safeHeader = value => String(value || "").replace(/[\r\n]+/g, " ").trim();
   const body = [
-    "To the MRMG / Model Store review team,", "",
-    `I am providing the B70+ business attestation for the ${data.useCaseName} GenAI use case.`, "",
-    ...ATTESTATIONS.map((item, index) => `${index + 1}. ${item}`), "",
-    `The ongoing monitoring plan uses a ${String(data.monitoringFrequency || "annual").toLowerCase()} cadence.`, "",
-    "Regards,", safeHeader(data.businessOwnerName), safeHeader(data.businessOwnerTitle), safeHeader(data.businessOwnerEmail), "",
+    `Dear ${safeHeader(data.businessOwnerName)},`, "",
+    "To proceed with model risk certification, a formal attestation from the business owner (B70+) is required.", "",
+    "This attestation serves as confirmation that:",
+    "1. The model will be used only within the intended scope described in the documentation.",
+    "2. Mandatory controls have been tested for effectiveness and will be implemented in production.",
+    "3. Testing performed is appropriate for the use case and supports the documented conclusions.",
+    "4. Residual risk is understood, accepted, and within the business risk appetite.",
+    `5. Ongoing monitoring will be completed at least annually; the submitted plan specifies a ${String(data.monitoringFrequency || "annual").toLowerCase()} cadence.`, "",
+    "Please find attached:",
+    "- Completed model documentation",
+    "- Outcome testing results",
+    "- Ongoing monitoring plan", "",
+    "Please reply confirming your approval of the above attestation.", "",
+    "Regards,", safeHeader(data.modelOwner), safeHeader(data.modelOwnerEmail), "",
   ].join("\r\n");
-  return [
-    `From: ${safeHeader(data.businessOwnerName)} <${safeHeader(data.businessOwnerEmail)}>`,
-    `Subject: B70+ Attestation - ${safeHeader(data.useCaseName)}`, "Date: " + new Date().toUTCString(),
-    "MIME-Version: 1.0", "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: 8bit", "X-Unsent: 1", "", body,
-  ].join("\r\n");
+  const boundary = `----MRMG-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const parts = [`--${boundary}`, "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: 8bit", "", body];
+  for (const item of attachments) parts.push(
+    `--${boundary}`,
+    `Content-Type: ${item.contentType}; name="${safeHeader(item.filename)}"`,
+    "Content-Transfer-Encoding: base64",
+    `Content-Disposition: attachment; filename="${safeHeader(item.filename)}"`, "", base64Lines(item.data),
+  );
+  parts.push(`--${boundary}--`, "");
+  return [`From: ${safeHeader(data.modelOwner)} <${safeHeader(data.modelOwnerEmail)}>`, `To: ${safeHeader(data.businessOwnerName)} <${safeHeader(data.businessOwnerEmail)}>`, `Subject: B70+ Attestation for GenAI Use Case - ${safeHeader(data.useCaseName)}`, "Date: " + new Date().toUTCString(), "MIME-Version: 1.0", `Content-Type: multipart/mixed; boundary="${boundary}"`, "X-Unsent: 1", "", ...parts].join("\r\n");
 }
 
 function cell(ref, value, style = 0) { return `<c r="${ref}" t="inlineStr" s="${style}"><is><t xml:space="preserve">${x(value)}</t></is></c>`; }
@@ -319,21 +391,34 @@ export async function generateBrowserPackage(data, supportingFiles = []) {
   const safe = { ...data, metrics, supportingFileNames: supportingFiles.map(file => file.name) };
   delete safe.supportingFiles;
   const outer = new JSZip();
-  const [primary, prompts, monitoring, attestation, workbook] = await Promise.all([
-    makeDocx("GenAI Model Risk Tiering Framework", primaryBody(safe)),
+  const [prompts, monitoring, attestation, workbook] = await Promise.all([
     makeDocx("LLM Prompt Documentation Template", promptBody(safe)),
     makeDocx("Ongoing Monitoring Plan", monitoringBody(safe, metrics)),
-    makeDocx("B70+ Attestation Template", attestationBody(safe)),
+    makeDocx("Reference Template for B70+ Attestation", attestationBody(safe), [], [FOOTNOTES[1]]),
     makeXlsx(safe, metrics),
   ]);
+  const supportingEmbeddings = [];
+  for (const file of supportingFiles) supportingEmbeddings.push({ filename: String(file.name).split(/[\\/]/).pop(), data: new Uint8Array(await file.arrayBuffer()), contentType: file.type || mimeFor(file.name) });
+  const primaryEmbeddings = [
+    { filename: "Outcome Analysis.xlsx", data: workbook },
+    { filename: "Prompt Submission Template.docx", data: prompts },
+    { filename: "B70+ Attestation Template.docx", data: attestation },
+    { filename: "Ongoing Monitoring Plan.docx", data: monitoring },
+    ...supportingEmbeddings,
+  ];
+  const primary = await makeDocx("GenAI Model Risk Tiering Framework", primaryBody(safe), primaryEmbeddings, FOOTNOTES);
   outer.file("MRMG First Line Submission.docx", primary);
   outer.file("Prompt Submission Template.docx", prompts);
   outer.file("Ongoing Monitoring Plan.docx", monitoring);
   outer.file("B70+ Attestation Template.docx", attestation);
-  outer.file("B70+ Attestation Email.eml", makeB70Email(safe));
+  outer.file("B70+ Attestation Email.eml", makeB70Email(safe, [
+    { filename: "MRMG First Line Submission.docx", data: primary, contentType: mimeFor("MRMG First Line Submission.docx") },
+    { filename: "Outcome Analysis.xlsx", data: workbook, contentType: mimeFor("Outcome Analysis.xlsx") },
+    { filename: "Ongoing Monitoring Plan.docx", data: monitoring, contentType: mimeFor("Ongoing Monitoring Plan.docx") },
+  ]));
   outer.file("Outcome Analysis.xlsx", workbook);
   outer.file("submission.json", JSON.stringify(safe, null, 2));
-  for (const file of supportingFiles) outer.file(`Supporting Documents/${String(file.name).split(/[\\/]/).pop()}`, await file.arrayBuffer());
+  for (const item of supportingEmbeddings) outer.file(`Supporting Documents/${item.filename}`, item.data);
   const blob = await outer.generateAsync({ type: "blob", compression: "DEFLATE" });
   return { blob, filename: `${slug(data.useCaseName)}-mrmg-submission.zip`, summary: `Package created successfully with 4 Word documents, 1 Excel workbook, 1 B70+ draft email, submission JSON${supportingFiles.length ? `, and ${supportingFiles.length} supporting file${supportingFiles.length === 1 ? "" : "s"}` : ""}.` };
 }

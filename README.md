@@ -31,13 +31,13 @@ Local mode creates a ZIP containing:
 - `Prompt Submission Template.docx`;
 - `Ongoing Monitoring Plan.docx`;
 - `B70+ Attestation Template.docx`;
-- `B70+ Attestation Email.eml` (an unsent draft populated with the business owner details and attestations);
+- `B70+ Attestation Email.eml` (an unsent request from the model owner to the named B70+ owner, with the completed submission, outcome analysis, and monitoring plan attached);
 - `submission.json`; and
 - optional supporting files in `Supporting Documents/`.
 
 ## GitHub Pages
 
-The public Pages portal supports the complete intake, routing, scoring, validation, local draft storage, and full submission-package generation. Because GitHub Pages cannot execute the Python service, a browser-side generator creates four Word documents, the Outcome Analysis Excel workbook, a B70+ draft email, submission JSON, optional supporting documents, and the final ZIP entirely on the user's device. Answers and attachments are not transmitted to GitHub or another server.
+The public Pages portal supports the complete intake, routing, scoring, validation, local draft storage, and full submission-package generation. Because GitHub Pages cannot execute the Python service, a browser-side generator creates four Word documents, the Outcome Analysis Excel workbook, a B70+ draft email, submission JSON, optional supporting documents, and the final ZIP entirely on the user's device. The primary Word submission contains the generated supporting documents and optional uploads as embedded, clickable objects. Answers and attachments are not transmitted to GitHub or another server.
 
 The workflow in `.github/workflows/pages.yml` installs the browser dependencies, builds the static application with Vite, and publishes only `dist/`. It does not commit or deploy source scans, documents, spreadsheets, PDFs, images, user submissions, or generated packages.
 
@@ -48,11 +48,11 @@ pnpm install
 pnpm build
 ```
 
-## Optional DOCM source template
+## Optional source template
 
-To retain an original DOCM package locally, place the source file at `templates/source.docm`. That file is ignored by Git and will never be pushed. The local generator preserves its package parts, appends the completed response, and emits a `.docm`. Without it, the generator emits a standards-compliant `.docx`.
+To retain an original macro-enabled source package locally, place it at `templates/source.docm`. That file is ignored by Git and will never be pushed. The local generator preserves the source package parts, appends the completed response, and emits a `.docm`. Without it, the generator emits a standards-compliant `.docx`.
 
-The generated supporting files are separate usable files in the ZIP. True clickable OLE embedding requires the original Word template and a Word-compatible authoring environment; the portal does not make a false embedding claim.
+The generated supporting files remain separate usable files in the ZIP and are also embedded as clickable package objects inside the primary Word submission.
 
 ## Tests
 
@@ -60,7 +60,7 @@ The generated supporting files are separate usable files in the ZIP. True clicka
 python3 -m unittest discover -s tests -v
 ```
 
-The suite covers routing, MIC bands and exact boundaries, process/driver validation, repeatable metrics, prompt-call count rules, Section 2 inclusion/omission, Word and Excel generation, B70+ Word and email output, ZIP integrity, optional DOCM package preservation, and HTTP generation/download. The browser package builder has a separate Node test:
+The suite covers routing, MIC bands and exact boundaries, process/driver validation, repeatable metrics, prompt-call count rules, Section 2 inclusion/omission, Word and Excel generation, B70+ Word and email output, ZIP integrity, optional source-package preservation, and HTTP generation/download. The browser package builder has a separate Node test:
 
 ```bash
 pnpm test:browser-generator
