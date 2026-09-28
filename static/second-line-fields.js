@@ -5,8 +5,8 @@ export const SECOND_LINE_GROUPS = [
     description: "Header, ownership, market, and disposition fields.",
     fields: [
       ["omniId", "OMNI ID"], ["reportDate", "Date", "date"], ["modelName", "Model name"], ["modelVersion", "Model version"],
-      ["impactTier", "Impact tier", "select", ["", "Low", "Medium"]],
-      ["impactSubtype", "Impact route", "select", ["", "Productivity Tool", "Non-core AXP Business Tool", "Other Low Impact", "Medium Impact", "Medium Impact Customer-facing Pilot"]],
+      ["impactTier", "Impact tier", "select", ["", "Low", "Medium", "High", "Critical"]],
+      ["impactSubtype", "Impact route", "select", ["", "Productivity Tool", "Non-core AXP Business Tool", "Other Low Impact", "Medium Impact", "Medium Impact Customer-facing Pilot", "High Impact", "Critical Impact"]],
       ["businessVp", "Business VP+"], ["modelOwner", "Model Owner (B40+)"], ["mrmgVp", "MRMG VP+"],
       ["validators", "Lead Validator / Validators"], ["market", "Market (US/EU/Other)"],
       ["validationStatus", "Validation status", "select", ["", "Approved", "Approved with Findings", "Approved for Limited Use", "Rejected"]],
@@ -199,4 +199,92 @@ export function mergeExtractedFields(current, extracted) {
   const merged = { ...current };
   for (const [key, value] of Object.entries(extracted || {})) if (!String(merged[key] || "").trim() && String(value || "").trim()) merged[key] = value;
   return merged;
+}
+
+function joined(...values) {
+  return values.flat().map(value => clean(value)).filter(Boolean).join(", ");
+}
+
+function firstDefined(...values) {
+  return values.find(value => value !== undefined && value !== null && String(value).trim() !== "");
+}
+
+function normalizedTier(value) {
+  const tier = clean(value).toLowerCase();
+  return ({ low: "Low", medium: "Medium", high: "High", critical: "Critical" })[tier] || clean(value);
+}
+
+function intendedUsers(value) {
+  return ({ customer: "customers", colleague: "internal colleagues", internal: "internal colleagues", none: "no direct end users / foundational capability" })[clean(value).toLowerCase()] || clean(value);
+}
+
+/** Map the machine-readable submission.json created by the First Line portal. */
+export function extractFieldsFromSubmissionJson(rawJson) {
+  let data;
+  try { data = typeof rawJson === "string" ? JSON.parse(rawJson) : rawJson; }
+  catch { return {}; }
+  if (!data || typeof data !== "object" || Array.isArray(data)) return {};
+
+  const metricObjects = Array.isArray(data.metrics) && data.metrics.length ? data.metrics : (Array.isArray(data.metricName) ? data.metricName.map((metricName, index) => ({
+    metricName,
+    metricValue: data.metricValue?.[index],
+    metricRationale: data.metricRationale?.[index],
+    metricGreen: data.metricGreen?.[index],
+    metricAmber: data.metricAmber?.[index],
+    metricRed: data.metricRed?.[index],
+  })) : []);
+  const metrics = metricObjects.filter(metric => clean(metric?.metricName));
+  const firstMetric = metrics[0] || {};
+  const tier = normalizedTier(data.impactTier);
+  const purpose = clean(data.purpose).toLowerCase();
+  const solutionType = clean(data.solutionType).toLowerCase();
+  let impactSubtype = "";
+  if (tier === "Low" && (purpose === "productivity" || solutionType === "general")) impactSubtype = "Productivity Tool";
+  else if (tier === "Low" && purpose === "noncore") impactSubtype = "Non-core AXP Business Tool";
+  else if (tier) impactSubtype = `${tier} Impact`;
+
+  const scoreParts = data.assessmentComponents || {};
+  const regulatory = clean(data.regulatory).toLowerCase();
+  const hosting = clean(data.hosting).toLowerCase();
+  const mapped = {
+    modelName: firstDefined(data.useCaseName, data.modelName),
+    modelVersion: data.modelVersion,
+    impactTier: tier,
+    impactSubtype,
+    businessVp: joined(data.businessOwnerName, data.businessOwnerTitle),
+    modelOwner: joined(data.modelOwner, data.modelOwnerEmail),
+    market: Array.isArray(data.markets) ? data.markets.join(" / ") : data.markets,
+    businessUnit: data.businessUnit,
+    businessProblem: data.overview,
+    specificSolution: firstDefined(data.overview, data.useCaseName),
+    modelInputs: data.modelInputs,
+    modelOutputs: firstDefined(data.generatedOutputs, data.modelOutputs),
+    regulatoryReporting: regulatory === "yes" ? "is" : regulatory === "no" ? "not" : "",
+    llmNames: joined(data.modelName, data.modelVersion),
+    hosting: hosting === "axp" || hosting === "internal" ? "internally" : hosting === "external" ? "externally" : data.hosting,
+    implementationDate: data.implementationDate,
+    intendedUsers: intendedUsers(data.endUsers),
+    outputConsumption: clean(data.reliance) === "direct" ? "a direct input to a business process or decision" : data.reliance,
+    quantitativeDetails: joined(data.businessProcess, data.quantDriver, data.impactThreshold ? `${data.impactThreshold} threshold` : ""),
+    quantitativeScore: firstDefined(scoreParts.qn, data.quantitativeScore),
+    qualitativeScore: firstDefined(scoreParts.ql, data.qualitativeScore),
+    complexityScore: firstDefined(scoreParts.cx, data.complexityScore),
+    interdependenceScore: firstDefined(scoreParts.dd, data.interdependenceScore),
+    finalScore: firstDefined(data.assessmentScore, data.finalScore),
+    impactThreshold: data.impactThreshold,
+    promptProvided: data.promptCallText || data.promptCallName ? "provided" : "",
+    validationSampleSize: firstDefined(data.sampleSize, data.validationSampleSize),
+    validationMetrics: metrics.map(metric => joined(metric.metricName, metric.metricValue)).join("; "),
+    monitoringMetric: firstMetric.metricName,
+    monitoringRationale: firstMetric.metricRationale,
+    monitoringSampleSize: firstDefined(data.sampleSize, data.monitoringSampleSize),
+    monitoringFrequency: data.monitoringFrequency,
+    greenThreshold: firstMetric.metricGreen,
+    amberThreshold: firstMetric.metricAmber,
+    failThreshold: firstMetric.metricRed,
+    businessAttester: joined(data.businessOwnerName, data.businessOwnerTitle),
+  };
+  return Object.fromEntries(Object.entries(mapped)
+    .filter(([, value]) => value !== undefined && value !== null && String(value).trim())
+    .map(([key, value]) => [key, String(value).trim()]));
 }

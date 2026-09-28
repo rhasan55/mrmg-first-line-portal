@@ -264,14 +264,15 @@
           <section class="second-line-stage active" data-second-line-panel="evidence">
             <p class="overline">01 · Evidence intake</p>
             <h3>Bring the validation evidence together.</h3>
-            <p class="stage-lede">Add searchable PDF, Word, Excel, CSV, JSON, Markdown, or text documents. The portal reads them locally and maps labeled facts into the report editor.</p>
+            <p class="stage-lede">Upload the complete First Line ZIP for the strongest mapping, or add searchable PDF, Word, Excel, CSV, JSON, Markdown, or text documents. The portal reads them locally and maps facts into the report editor.</p>
             <label class="second-line-drop">Second Line documents
-              <input id="secondLineFiles" type="file" multiple accept=".pdf,.docx,.xlsx,.csv,.json,.md,.txt">
-              <span>Choose files or drag them here · 15 MB per file · 40 MB total</span>
+              <input id="secondLineFiles" type="file" multiple accept=".zip,.pdf,.docx,.docm,.xlsx,.csv,.json,.md,.txt">
+              <span>First Line ZIP or individual evidence files · 15 MB per file · 40 MB total</span>
             </label>
             <div class="evidence-actions">
               <button class="primary" id="processSecondLineFiles" type="button">Read selected evidence</button>
               <button class="ghost" id="loadSecondLineExample" type="button">Load an example case</button>
+              <button class="ghost" id="resetSecondLineData" type="button">Clear report data</button>
             </div>
             <div class="evidence-status" id="secondLineEvidenceStatus" role="status">No evidence processed yet.</div>
             <div class="evidence-list" id="secondLineEvidenceList"></div>

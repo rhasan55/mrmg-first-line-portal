@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import JSZip from "jszip";
-import { extractFieldsFromText, mergeExtractedFields } from "../static/second-line-fields.js";
+import { extractFieldsFromSubmissionJson, extractFieldsFromText, mergeExtractedFields } from "../static/second-line-fields.js";
 import { generateValidationReport, validationReportFilename } from "../static/second-line-generator.js";
 
 const complete = {
@@ -78,6 +78,32 @@ assert.equal(workbookExtracted.monitoringRationale, "Accuracy directly measures 
 assert.equal(workbookExtracted.greenThreshold, ">= 88%");
 assert.equal(workbookExtracted.amberThreshold, "80% to 87.9%");
 assert.equal(workbookExtracted.failThreshold, "< 80%");
+
+const submissionExtracted = extractFieldsFromSubmissionJson(JSON.stringify({
+  useCaseName: "First Line Package QA", modelName: "Enterprise LLM", modelVersion: "5.1", modelOwner: "Model Team", modelOwnerEmail: "model.team@example.com",
+  businessOwnerName: "Avery Morgan", businessOwnerTitle: "SVP", businessUnit: "Enterprise Services", implementationDate: "2026-09-30", markets: ["US", "EU"],
+  overview: "Answers approved knowledge questions.", modelInputs: "User questions and approved documents", generatedOutputs: "Grounded responses", regulatory: "no", hosting: "axp",
+  solutionType: "custom", purpose: "core", impactTier: "High", assessmentScore: 2.1, assessmentComponents: { qn: 2, ql: 3, cx: 0, dd: 1 },
+  endUsers: "customer", businessProcess: "Credit and Fraud Risk", quantDriver: "Adverse Action Volume", impactThreshold: "medium", reliance: "direct",
+  sampleSize: "1447", monitoringFrequency: "Quarterly", promptCallName: "Retrieval answer", promptCallText: "Use approved context only.",
+  metrics: [
+    { metricName: "Accuracy", metricValue: "82%", metricRationale: "Correctness", metricGreen: ">=80%", metricAmber: "65-79%", metricRed: "<65%" },
+    { metricName: "Hallucination rate", metricValue: "3%", metricRationale: "Unsupported claims", metricGreen: "<=3%", metricAmber: "3-5%", metricRed: ">5%" },
+  ],
+}));
+assert.equal(submissionExtracted.modelName, "First Line Package QA");
+assert.equal(submissionExtracted.llmNames, "Enterprise LLM, 5.1");
+assert.equal(submissionExtracted.impactTier, "High");
+assert.equal(submissionExtracted.impactSubtype, "High Impact");
+assert.equal(submissionExtracted.businessVp, "Avery Morgan, SVP");
+assert.equal(submissionExtracted.quantitativeScore, "2");
+assert.equal(submissionExtracted.complexityScore, "0");
+assert.equal(submissionExtracted.finalScore, "2.1");
+assert.equal(submissionExtracted.validationSampleSize, "1447");
+assert.equal(submissionExtracted.validationMetrics, "Accuracy, 82%; Hallucination rate, 3%");
+assert.equal(submissionExtracted.monitoringFrequency, "Quarterly");
+assert.equal(submissionExtracted.greenThreshold, ">=80%");
+assert.deepEqual(extractFieldsFromSubmissionJson("not json"), {});
 
 async function inspectCase(name, data, expectations) {
   const bytes = await generateValidationReport(data);

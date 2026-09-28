@@ -1,5 +1,5 @@
 import JSZip from "jszip";
-import { SECOND_LINE_GROUPS, extractFieldsFromText, mergeExtractedFields } from "./second-line-fields.js";
+import { SECOND_LINE_GROUPS, extractFieldsFromSubmissionJson, extractFieldsFromText, mergeExtractedFields } from "./second-line-fields.js";
 import { generateValidationReport, validationReportFilename } from "./second-line-generator.js";
 
 const dialog = document.querySelector("#secondLinePortal");
@@ -26,6 +26,7 @@ function formatBytes(size) {
 }
 
 function nonblankCount() { return Object.values(fields).filter(value => String(value || "").trim()).length; }
+function fieldCount(values) { return Object.values(values || {}).filter(value => String(value ?? "").trim()).length; }
 
 function inputMarkup(name, label, type, options) {
   const current = String(fields[name] || "");
@@ -52,7 +53,7 @@ function updateCounts() {
 
 function renderEvidence() {
   const list = document.querySelector("#secondLineEvidenceList");
-  list.innerHTML = evidence.map(item => `<div class="evidence-item${item.ok ? "" : " failed"}"><span>${esc(item.extension)}</span><div><strong>${esc(item.name)}</strong><small>${esc(item.detail)}</small></div><i>${item.ok ? `${item.fields} fields` : "Review needed"}</i></div>`).join("");
+  list.innerHTML = evidence.map(item => `<div class="evidence-item${item.ok ? "" : " failed"}"><span>${esc(item.extension)}</span><div><strong>${esc(item.name)}</strong><small>${esc(item.detail)}</small></div><i>${item.ok ? `${item.recognized} recognized · ${item.added} added` : "Review needed"}</i></div>`).join("");
 }
 
 function renderStage() {
@@ -140,10 +141,47 @@ async function fileText(file) {
   const extension = file.name.split(".").pop().toLowerCase();
   if (["txt", "csv", "json", "md"].includes(extension)) return file.text();
   const buffer = await file.arrayBuffer();
-  if (extension === "docx") return docxText(buffer);
+  if (["docx", "docm"].includes(extension)) return docxText(buffer);
   if (extension === "xlsx") return xlsxText(buffer);
   if (extension === "pdf") return pdfText(buffer);
   throw new Error("Unsupported file type.");
+}
+
+async function fieldsFromZip(buffer) {
+  const zip = await JSZip.loadAsync(buffer);
+  const supported = /\.(?:docx|docm|xlsx|pdf|csv|json|md|txt)$/i;
+  const entries = Object.values(zip.files).filter(entry => !entry.dir && supported.test(entry.name) && !entry.name.startsWith("__MACOSX/")).slice(0, 30);
+  if (!entries.length) throw new Error("No supported evidence files were found in this ZIP.");
+  let extracted = {};
+  let authoritative = {};
+  let reviewed = 0;
+  for (const entry of entries) {
+    const extension = entry.name.split(".").pop().toLowerCase();
+    const bytes = await entry.async("uint8array");
+    let textValue = "";
+    if (["docx", "docm"].includes(extension)) textValue = await docxText(bytes);
+    else if (extension === "xlsx") textValue = await xlsxText(bytes);
+    else if (extension === "pdf") textValue = await pdfText(bytes);
+    else textValue = new TextDecoder().decode(bytes);
+    let entryFields = extractFieldsFromText(textValue);
+    if (extension === "json") {
+      const submissionFields = extractFieldsFromSubmissionJson(textValue);
+      entryFields = { ...entryFields, ...submissionFields };
+      authoritative = { ...authoritative, ...submissionFields };
+    }
+    extracted = mergeExtractedFields(extracted, entryFields);
+    reviewed += 1;
+  }
+  return { fields: { ...extracted, ...authoritative }, detail: `${reviewed} compatible file${reviewed === 1 ? "" : "s"} read from the package` };
+}
+
+async function extractFileFields(file) {
+  const extension = file.name.split(".").pop().toLowerCase();
+  if (extension === "zip") return fieldsFromZip(await file.arrayBuffer());
+  const textValue = await fileText(file);
+  let extracted = extractFieldsFromText(textValue);
+  if (extension === "json") extracted = { ...extracted, ...extractFieldsFromSubmissionJson(textValue) };
+  return { fields: extracted, detail: "text read locally" };
 }
 
 async function processFiles() {
@@ -153,21 +191,33 @@ async function processFiles() {
   if (files.some(file => file.size > 15_000_000) || files.reduce((sum, file) => sum + file.size, 0) > 40_000_000) { status.textContent = "Files must be 15 MB or less each and 40 MB or less in total."; return; }
   const button = document.querySelector("#processSecondLineFiles");
   button.disabled = true; status.textContent = `Reading ${files.length} file${files.length === 1 ? "" : "s"} on this device…`; evidence = [];
-  let mapped = 0;
+  let mapped = 0; let recognizedTotal = 0;
   try {
     for (const file of files) {
       const extension = file.name.split(".").pop().toUpperCase();
       try {
-        const text = await fileText(file);
-        const extracted = extractFieldsFromText(text);
-        const before = nonblankCount(); fields = mergeExtractedFields(fields, extracted); const added = nonblankCount() - before; mapped += added;
-        evidence.push({ name: file.name, extension, detail: `${formatBytes(file.size)} · text read locally`, fields: added, ok: true });
+        const result = await extractFileFields(file); const recognized = fieldCount(result.fields);
+        const before = nonblankCount(); fields = mergeExtractedFields(fields, result.fields); const added = nonblankCount() - before; mapped += added; recognizedTotal += recognized;
+        evidence.push({ name: file.name, extension, detail: `${formatBytes(file.size)} · ${result.detail}`, recognized, added, ok: true });
       } catch (error) {
-        evidence.push({ name: file.name, extension, detail: error.message, fields: 0, ok: false });
+        evidence.push({ name: file.name, extension, detail: error.message, recognized: 0, added: 0, ok: false });
       }
     }
-    renderEvidence(); renderFields(); status.textContent = `${files.length} file${files.length === 1 ? "" : "s"} reviewed; ${mapped} previously blank field${mapped === 1 ? "" : "s"} populated. Confirm every value in Review fields.`;
+    renderEvidence(); renderFields();
+    status.textContent = recognizedTotal
+      ? mapped
+        ? `${files.length} file${files.length === 1 ? "" : "s"} reviewed; ${recognizedTotal} field${recognizedTotal === 1 ? "" : "s"} recognized and ${mapped} added to previously blank fields. Confirm every value in Review fields.`
+        : `${files.length} file${files.length === 1 ? "" : "s"} reviewed; ${recognizedTotal} field${recognizedTotal === 1 ? "" : "s"} recognized, but none were added because those report fields already had values. Use Clear report data for a fresh extraction.`
+      : `${files.length} file${files.length === 1 ? "" : "s"} reviewed, but no labeled fields were recognized. Upload the complete First Line ZIP or its submission.json for the most reliable mapping.`;
   } finally { button.disabled = false; }
+}
+
+function resetSecondLineData() {
+  fields = {}; evidence = []; stageIndex = 0;
+  document.querySelector("#secondLineFiles").value = "";
+  document.querySelector("#secondLineEvidenceStatus").textContent = "Report data cleared. Choose a First Line ZIP or evidence files to begin.";
+  document.querySelector("#secondLineGenerationStatus").textContent = "";
+  renderEvidence(); renderFields(); renderStage();
 }
 
 const example = {
@@ -191,7 +241,7 @@ const example = {
 };
 
 function loadExample() {
-  fields = { ...example }; evidence = [{ name: "Example validation package", extension: "DEMO", detail: "Synthetic demonstration data · no file uploaded", fields: nonblankCount(), ok: true }];
+  fields = { ...example }; const count = nonblankCount(); evidence = [{ name: "Example validation package", extension: "DEMO", detail: "Synthetic demonstration data · no file uploaded", recognized: count, added: count, ok: true }];
   renderEvidence(); renderFields(); document.querySelector("#secondLineEvidenceStatus").textContent = "Example case loaded. Open Review fields to see how populated values appear in green in the report.";
 }
 
@@ -214,6 +264,7 @@ document.querySelector("#secondLineNext").addEventListener("click", () => { stag
 document.querySelector("#secondLineBack").addEventListener("click", () => { stageIndex = Math.max(0, stageIndex - 1); renderStage(); });
 document.querySelector("#processSecondLineFiles").addEventListener("click", processFiles);
 document.querySelector("#loadSecondLineExample").addEventListener("click", loadExample);
+document.querySelector("#resetSecondLineData").addEventListener("click", resetSecondLineData);
 fieldForm.addEventListener("input", event => { fields[event.target.name] = event.target.value; updateCounts(); });
 fieldForm.addEventListener("change", event => { fields[event.target.name] = event.target.value; updateCounts(); });
 document.querySelector("#generateSecondLineReport").addEventListener("click", async () => {

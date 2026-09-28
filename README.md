@@ -16,9 +16,10 @@ A step-by-step GenAI model-risk intake that implements the approved questionnair
 
 ## Second Line report builder
 
-The bottom-left **Second Line** tab opens a separate validation workspace. Enter `MRMG`, add searchable PDF, Word, Excel, CSV, JSON, Markdown, or text evidence, review the locally extracted fields, and generate the five-page Word validation report.
+The bottom-left **Second Line** tab opens a separate validation workspace. Enter `MRMG`, upload a complete First Line ZIP or add searchable PDF, Word, Excel, CSV, JSON, Markdown, or text evidence, review the locally extracted fields, and generate the five-page Word validation report. A First Line `submission.json` is mapped directly, while individual evidence files use labeled-text extraction.
 
 - Evidence is processed in the browser and is not uploaded.
+- The evidence summary distinguishes fields recognized in each file from fields newly added to the current report; **Clear report data** starts a clean extraction pass.
 - Populated report values are green; unsupported fields remain blank.
 - The output follows the validation-report structure: identity table, tier-specific overview wording, impact matrix, validation assessment, monitoring thresholds, findings, and conclusion.
 - The access-word screen is a convenience gate only. GitHub Pages is a public static host, so it is not secure authentication and confidential evidence should be handled according to organizational policy.
