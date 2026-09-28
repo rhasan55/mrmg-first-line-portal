@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>MRMG · First Line Intake</title>
+  <title>MRMG · First Line + Second Line Portal</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -135,6 +135,11 @@
     <span><strong>Score Playground</strong><small>Explore every pathway</small></span>
   </button>
 
+  <button class="second-line-tab" id="secondLineTrigger" type="button" aria-controls="secondLinePortal" aria-expanded="false">
+    <span class="second-line-tab-icon" aria-hidden="true">II</span>
+    <span><strong>Second Line</strong><small>Build a validation report</small></span>
+  </button>
+
   <dialog class="playground-sheet" id="scorePlayground" aria-labelledby="playgroundTitle">
     <div class="playground-shell">
       <header class="playground-head">
@@ -221,6 +226,90 @@
       </footer>
     </div>
   </dialog>
+  <dialog class="second-line-sheet" id="secondLinePortal" aria-labelledby="secondLineTitle">
+    <div class="second-line-shell">
+      <header class="second-line-head">
+        <div>
+          <p class="overline">MRMG · validation workspace</p>
+          <h2 id="secondLineTitle">Second Line report builder</h2>
+          <p>Review local evidence, confirm extracted facts, and create the five-page validation report in the approved format.</p>
+        </div>
+        <button class="playground-close" id="secondLineClose" type="button" aria-label="Close Second Line portal">×</button>
+      </header>
+
+      <section class="second-line-gate" id="secondLineGate">
+        <div class="gate-card">
+          <span class="gate-monogram" aria-hidden="true">MR</span>
+          <p class="overline">Restricted workspace</p>
+          <h3>Enter the Second Line access word.</h3>
+          <p>This screen limits casual access in this browser. Because the portal is a public static site, it is not enterprise authentication and must not be treated as a security boundary.</p>
+          <form id="secondLineAccessForm">
+            <label>Access word<input id="secondLinePassword" type="password" autocomplete="off" required aria-describedby="secondLineAccessStatus"></label>
+            <button class="primary" type="submit">Open Second Line</button>
+          </form>
+          <p class="gate-status" id="secondLineAccessStatus" role="status"></p>
+        </div>
+      </section>
+
+      <section class="second-line-workspace" id="secondLineWorkspace" hidden>
+        <aside class="second-line-nav" aria-label="Second Line report stages">
+          <div class="second-line-lockup"><span>02</span><div><strong>Validation report</strong><small>Five-page Word output</small></div></div>
+          <button type="button" class="active" data-second-line-stage="evidence"><i>01</i><span>Evidence intake</span></button>
+          <button type="button" data-second-line-stage="review"><i>02</i><span>Review fields</span></button>
+          <button type="button" data-second-line-stage="generate"><i>03</i><span>Generate report</span></button>
+          <div class="second-line-privacy"><span class="status-dot"></span><p>Files stay in this browser. Nothing is uploaded.</p></div>
+        </aside>
+
+        <div class="second-line-content">
+          <section class="second-line-stage active" data-second-line-panel="evidence">
+            <p class="overline">01 · Evidence intake</p>
+            <h3>Bring the validation evidence together.</h3>
+            <p class="stage-lede">Add searchable PDF, Word, Excel, CSV, JSON, Markdown, or text documents. The portal reads them locally and maps labeled facts into the report editor.</p>
+            <label class="second-line-drop">Second Line documents
+              <input id="secondLineFiles" type="file" multiple accept=".pdf,.docx,.xlsx,.csv,.json,.md,.txt">
+              <span>Choose files or drag them here · 15 MB per file · 40 MB total</span>
+            </label>
+            <div class="evidence-actions">
+              <button class="primary" id="processSecondLineFiles" type="button">Read selected evidence</button>
+              <button class="ghost" id="loadSecondLineExample" type="button">Load an example case</button>
+            </div>
+            <div class="evidence-status" id="secondLineEvidenceStatus" role="status">No evidence processed yet.</div>
+            <div class="evidence-list" id="secondLineEvidenceList"></div>
+            <div class="second-line-rule-note"><strong>Extraction is a starting point.</strong><p>Confirm every populated field against the source documents. Unavailable fields may remain blank and will stay blank in the report.</p></div>
+          </section>
+
+          <section class="second-line-stage" data-second-line-panel="review">
+            <div class="review-heading">
+              <div><p class="overline">02 · Review fields</p><h3>Confirm what will appear in green.</h3><p class="stage-lede">Every nonblank value is rendered in green; template language remains black. Edit or clear any field before generation.</p></div>
+              <div class="field-count"><strong id="secondLineFieldCount">0</strong><span>populated fields</span></div>
+            </div>
+            <form id="secondLineFields" class="second-line-fields"></form>
+          </section>
+
+          <section class="second-line-stage" data-second-line-panel="generate">
+            <p class="overline">03 · Generate</p>
+            <h3>Create the validation report.</h3>
+            <p class="stage-lede">The output follows the scanned five-page template: identity table, the applicable model-overview pathway, impact matrix, validation assessment, monitoring thresholds, findings, and conclusion.</p>
+            <div class="report-preview-card">
+              <span>Word document</span>
+              <strong id="secondLineFilename">Validation-Report.docx</strong>
+              <div><i>5</i><small>template pages</small><i id="secondLineGreenCount">0</i><small>green values</small></div>
+            </div>
+            <div class="generation-note"><strong>Before downloading</strong><p>Review the extracted facts and leave unsupported fields blank. This tool does not make an approval decision and does not replace validator judgment.</p></div>
+            <button class="generate" id="generateSecondLineReport" type="button"><span>Generate validation report</span><small>Word document · created on this device</small></button>
+            <div class="generation-status" id="secondLineGenerationStatus" role="status"></div>
+          </section>
+
+          <footer class="second-line-actions">
+            <button class="ghost" id="secondLineBack" type="button">Back</button>
+            <span id="secondLineStageLabel">Evidence intake</span>
+            <button class="primary" id="secondLineNext" type="button">Continue</button>
+          </footer>
+        </div>
+      </section>
+    </div>
+  </dialog>
   <script type="module" src="app.js"></script>
+  <script type="module" src="second-line.js"></script>
 </body>
 </html>

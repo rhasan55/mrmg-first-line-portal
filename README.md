@@ -1,4 +1,4 @@
-# MRMG First Line Intake
+# MRMG First Line + Second Line Portal
 
 A step-by-step GenAI model-risk intake that implements the approved questionnaire routing and scoring rules.
 
@@ -13,6 +13,15 @@ A step-by-step GenAI model-risk intake that implements the approved questionnair
 - “More than 2 sequential LLM calls” requires at least three fully documented prompt-call records.
 - The first outcome-analysis metric is required; users can add any number of additional metrics. Every added metric requires a value, rationale, and Green/Amber/Red thresholds.
 - A bottom-docked Score Playground simulates both Low-impact early exits and every scored tier without changing the saved intake. Users can optionally copy a scenario into the real routing and Section 2 fields.
+
+## Second Line report builder
+
+The bottom-left **Second Line** tab opens a separate validation workspace. Enter `MRMG`, add searchable PDF, Word, Excel, CSV, JSON, Markdown, or text evidence, review the locally extracted fields, and generate the five-page Word validation report.
+
+- Evidence is processed in the browser and is not uploaded.
+- Populated report values are green; unsupported fields remain blank.
+- The output follows the validation-report structure: identity table, tier-specific overview wording, impact matrix, validation assessment, monitoring thresholds, findings, and conclusion.
+- The access-word screen is a convenience gate only. GitHub Pages is a public static host, so it is not secure authentication and confidential evidence should be handled according to organizational policy.
 
 ## Local package generation
 
@@ -37,7 +46,7 @@ Local mode creates a ZIP containing:
 
 ## GitHub Pages
 
-The public Pages portal supports the complete intake, routing, scoring, validation, local draft storage, and full submission-package generation. Because GitHub Pages cannot execute the Python service, a browser-side generator creates four Word documents, the Outcome Analysis Excel workbook, a B70+ draft email, submission JSON, optional supporting documents, and the final ZIP entirely on the user's device. The primary Word submission contains the generated supporting documents and optional uploads as embedded, clickable objects. Answers and attachments are not transmitted to GitHub or another server.
+The public Pages portal supports the complete First Line intake and Second Line validation-report workflow. Because GitHub Pages cannot execute the Python service, browser-side generators create the First Line package and the Second Line Word report entirely on the user's device. Answers and attachments are not transmitted to GitHub or another server.
 
 The workflow in `.github/workflows/pages.yml` installs the browser dependencies, builds the static application with Vite, and publishes only `dist/`. It does not commit or deploy source scans, documents, spreadsheets, PDFs, images, user submissions, or generated packages.
 
@@ -65,4 +74,5 @@ The suite covers routing, MIC bands and exact boundaries, process/driver validat
 ```bash
 pnpm test:browser-generator
 pnpm test:scoring
+pnpm test:second-line
 ```

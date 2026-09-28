@@ -6,10 +6,12 @@
   "scripts": {
     "build": "vite build",
     "test:browser-generator": "node tests/test_browser_generator.mjs",
-    "test:scoring": "node tests/test_scoring.mjs"
+    "test:scoring": "node tests/test_scoring.mjs",
+    "test:second-line": "node tests/test_second_line.mjs"
   },
   "dependencies": {
-    "jszip": "3.10.2"
+    "jszip": "3.10.2",
+    "pdfjs-dist": "^6.3.289"
   },
   "devDependencies": {
     "vite": "8.3.1"
