@@ -4,6 +4,7 @@ import base64, binascii, json, mimetypes, os, re, shutil, subprocess, tempfile, 
 from copy import deepcopy
 from datetime import datetime
 from email.message import EmailMessage
+from html import escape
 from pathlib import Path
 from lxml import etree as LET
 
@@ -22,6 +23,37 @@ NODE_MODULES = Path(os.environ.get("MRMG_NODE_MODULES", RUNTIME / "node/node_mod
 SOURCE_DOCM = ROOT / "templates" / "source.docm"
 BLUE, NAVY, INK, LIGHT_BLUE, YELLOW, MAGENTA = "365C73", "203864", "111111", "D9E2F3", "FFF200", "C000A0"
 ATTESTATION_KEYS = ["accurate", "eu", "controls", "risk", "scope"]
+B70_CONFIRMATIONS = [
+    "All information provided regarding the use case in the model documentation is accurate.",
+    "If the use case is used in the EU market, its usage does not fall under Prohibited AI practices or High-risk AI systems as defined by the EU AI Act.",
+    "Mandatory controls have been tested for effectiveness and will be implemented in production.",
+    "The residual risk is understood, acceptable, and within the business risk appetite.",
+    "Model will be used within the intended scope only as described in this document.",
+]
+B70_ATTACHMENTS = [
+    "Completed model documentation with use case overview",
+    "Outcome testing results of the use-case with reported model performance",
+    "Ongoing Monitoring Plan* for annual monitoring and reporting of the use case",
+]
+B70_APPLICABILITY_NOTE = "*Not applicable for Medium impact Customer Facing Pilot use cases"
+MANDATORY_CONTROLS = [
+    "User access control",
+    "Disclaimers to inform use of AI",
+    "Incident reporting OR backup options in case of discontinuation or disruption of service",
+    "Usage of approved upstream models (if applicable)",
+    "Prevention of sensitive data leakage and blocking of harmful content, e.g., AI Firewall, etc.",
+    "Robust implementation and change management control (segregated dev/test/prod; approvals for releases; rollback path)",
+]
+
+
+def b70_formal_attestations():
+    return [
+        ("Use Within Scope", "The application will be used strictly as described in this document and the attached model documentation. The usage is bounded within the defined scope and intended purpose."),
+        ("Mandatory Control Effectiveness and Implementation", "Appropriate risk controls would be implemented and effective in production."),
+        ("Testing Effectiveness", "Testing and validation activities performed are sufficient and demonstrate that the model performance is acceptable for business usage."),
+        ("Residual Risk Acceptance", "Considering the implemented controls, and testing results, the residual risk associated with this use case is acceptable and within the business risk appetite."),
+        ("Ongoing Monitoring*", "Ongoing monitoring of the application will be conducted at an appropriate frequency (at least annually), with defined metrics and thresholds aligned to the business use of the application."),
+    ]
 BUSINESS_RULES = {
     "Credit and Fraud Risk": {
         "Account Receivable / Billed Business": ("≤ $1B", "$1B–$10B", "> $10B"),
@@ -201,6 +233,16 @@ def set_paragraph_border(paragraph, color=MAGENTA, size=16, space=7):
     borders.append(left)
 
 
+def set_paragraph_bottom_border(paragraph, color="7F7F7F", size=6, space=7):
+    p_pr = paragraph._p.get_or_add_pPr()
+    borders = p_pr.find(qn("w:pBdr"))
+    if borders is None:
+        borders = OxmlElement("w:pBdr"); p_pr.append(borders)
+    bottom = OxmlElement("w:bottom")
+    bottom.set(qn("w:val"), "single"); bottom.set(qn("w:sz"), str(size)); bottom.set(qn("w:space"), str(space)); bottom.set(qn("w:color"), color)
+    borders.append(bottom)
+
+
 def cell_text(cell, text, bold=False, color=INK, size=10, italic=False, align=None):
     cell.text = ""; p = cell.paragraphs[0]
     if align is not None: p.alignment = align
@@ -354,27 +396,28 @@ def build_monitoring_doc(data, path):
 
 
 def build_attestation_doc(data, path):
-    doc = base_document("Reference Template for B70+ Attestation")
-    p = doc.add_paragraph(); p.add_run("Subject: ").bold = True; p.add_run(f"B70+ Attestation for GenAI Use Case – {data['useCaseName']}")
+    doc = base_document()
+    p = doc.add_paragraph(); p.paragraph_format.space_after = Pt(12)
+    r = p.add_run("Reference Template for B70+ Attestation"); r.bold = True; r.underline = True; r.font.name = "Arial"; r.font.size = Pt(12)
+    p = doc.add_paragraph(); p.add_run("Subject: ").bold = True; p.add_run(f"B70+ Attestation for GenAI Use Case - {data['useCaseName']}")
     doc.add_paragraph(f"Dear {data['businessOwnerName']},")
-    doc.add_paragraph("To proceed with model risk certification, a formal attestation from the business owner (B70+) is required.")
-    doc.add_paragraph("This attestation serves as confirmation that the use case information, control environment, testing, residual risk, and ongoing monitoring plan have been reviewed and approved.")
+    doc.add_paragraph(f"To proceed with model risk certification for the GenAI use case {data['useCaseName']}, a formal attestation from the business owner (B70+) is required.")
+    doc.add_paragraph("This attestation serves as confirmation that:")
+    for index, item in enumerate(B70_CONFIRMATIONS):
+        text = "Mandatory controls¹ have been tested for effectiveness and will be implemented in production." if index == 2 else item
+        doc.add_paragraph(text, style="List Bullet")
     p = doc.add_paragraph(); p.add_run("Please find attached:").bold = True
-    for item in ["Completed model documentation", "Outcome testing results", "Ongoing monitoring plan"]: doc.add_paragraph(item, style="List Bullet")
-    heading(doc, "Attestation")
-    doc.add_paragraph("As the designated business owner, I confirm the following:")
-    attestations = [
-        ("Use Within Scope", "The model will be used only within the intended scope described in the submitted documentation."),
-        ("Mandatory Control Effectiveness and Implementation", "Mandatory controls have been tested for effectiveness and will be implemented in production."),
-        ("Testing Effectiveness", "The testing performed is appropriate for the use case and supports the conclusions documented in the submission."),
-        ("Residual Risk Acceptance", "Residual risk is understood, accepted, and within the business risk appetite."),
-        ("Ongoing Monitoring", f"Ongoing monitoring will be performed at least annually; the submitted plan currently specifies a {str(data['monitoringFrequency']).lower()} cadence."),
-    ]
-    for number, (name, item) in enumerate(attestations, 1):
+    for item in B70_ATTACHMENTS: doc.add_paragraph(item, style="List Bullet")
+    p = doc.add_paragraph(B70_APPLICABILITY_NOTE); p.runs[0].italic = True; p.runs[0].font.size = Pt(8.5)
+    p = doc.add_paragraph(); p.paragraph_format.space_before = Pt(10); p.paragraph_format.space_after = Pt(5); p.add_run("Attestation").bold = True
+    doc.add_paragraph("As the designated business owner (B70+), I confirm the following:")
+    for number, (name, item) in enumerate(b70_formal_attestations(), 1):
         p = doc.add_paragraph(); p.add_run(f"{number}. {name}\n").bold = True; p.add_run(item)
-    p = doc.add_paragraph("Mandatory controls are defined in the framework"); p.runs[0].italic = True; add_footnote_marker(p, 1)
-    heading(doc, "Approval", level=2)
-    line_value(doc, "Name:", data["businessOwnerName"]); line_value(doc, "Email:", data["businessOwnerEmail"]); line_value(doc, "Title:", data["businessOwnerTitle"]); line_value(doc, "Date:", datetime.now().strftime("%m/%d/%Y"))
+    p = doc.add_paragraph(B70_APPLICABILITY_NOTE); p.runs[0].italic = True; p.runs[0].font.size = Pt(8.5)
+    p = doc.add_paragraph(); set_paragraph_bottom_border(p)
+    p = doc.add_paragraph("¹ Mandatory controls include but are not limited to:"); p.paragraph_format.space_before = Pt(10)
+    for item in MANDATORY_CONTROLS: doc.add_paragraph(item, style="List Bullet")
+    p = doc.add_paragraph(); p.paragraph_format.space_before = Pt(10); p.add_run("Thanks,").bold = True
     doc.save(path)
 
 
@@ -386,18 +429,23 @@ def build_b70_email(data, path, attachments):
     message["X-Unsent"] = "1"
     lines = [
         f"Dear {data['businessOwnerName']},", "",
-        "To proceed with model risk certification, a formal attestation from the business owner (B70+) is required.", "",
+        f"To proceed with model risk certification for the GenAI use case {data['useCaseName']}, a formal attestation from the business owner (B70+) is required.", "",
         "This attestation serves as confirmation that:",
-        "1. The model will be used only within the intended scope described in the documentation.",
-        "2. Mandatory controls have been tested for effectiveness and will be implemented in production.",
-        "3. Testing performed is appropriate for the use case and supports the documented conclusions.",
-        "4. Residual risk is understood, accepted, and within the business risk appetite.",
-        f"5. Ongoing monitoring will be completed at least annually; the submitted plan specifies a {str(data['monitoringFrequency']).lower()} cadence.", "",
-        "Please find attached:", "- Completed model documentation", "- Outcome testing results", "- Ongoing monitoring plan", "",
-        "Please reply confirming your approval of the above attestation.", "",
-        "Regards,", data["modelOwner"], data["modelOwnerEmail"], "",
+        *[f"- {'Mandatory controls¹ have been tested for effectiveness and will be implemented in production.' if index == 2 else item}" for index, item in enumerate(B70_CONFIRMATIONS)], "",
+        "Please find attached:", *[f"- {item}" for item in B70_ATTACHMENTS], B70_APPLICABILITY_NOTE, "",
+        "Attestation", "",
+        "As the designated business owner (B70+), I confirm the following:", "",
+        *[line for number, (name, text) in enumerate(b70_formal_attestations(), 1) for line in (f"{number}. {name}", text, "")],
+        B70_APPLICABILITY_NOTE, "",
+        "------------------------------------------------------------", "",
+        "¹ Mandatory controls include but are not limited to:", *[f"- {item}" for item in MANDATORY_CONTROLS], "",
+        "Thanks,", "",
     ]
     message.set_content("\n".join(lines))
+    list_html = lambda items: "<ul>" + "".join(f"<li>{escape(item)}</li>" for item in items) + "</ul>"
+    formal_html = "".join(f'<p style="margin-left:18px"><strong>{number}. {escape(name)}</strong><br>{escape(text)}</p>' for number, (name, text) in enumerate(b70_formal_attestations(), 1))
+    html = f'''<!doctype html><html><body style="margin:0;background:#ffffff;color:#111111;font-family:Arial,sans-serif;font-size:11pt;line-height:1.35"><div style="max-width:720px;margin:0;padding:8px 4px"><p>Dear {escape(str(data['businessOwnerName']))},</p><p>To proceed with <strong>model risk certification</strong> for the GenAI use case {escape(str(data['useCaseName']))}, a formal attestation from the business owner (B70+) is required.</p><p><strong>This attestation serves as confirmation that:</strong></p>{list_html(["Mandatory controls¹ have been tested for effectiveness and will be implemented in production." if index == 2 else item for index, item in enumerate(B70_CONFIRMATIONS)])}<p><strong>Please find attached:</strong></p>{list_html(B70_ATTACHMENTS)}<p style="font-size:9pt"><em>{escape(B70_APPLICABILITY_NOTE)}</em></p><p style="font-size:13pt"><strong>Attestation</strong></p><p>As the designated business owner (B70+), I confirm the following:</p>{formal_html}<p style="font-size:9pt"><em>{escape(B70_APPLICABILITY_NOTE)}</em></p><hr style="border:0;border-top:1px solid #777;margin:18px 0"><p><sup>1</sup> <strong>Mandatory controls</strong> include but are not limited to:</p>{list_html(MANDATORY_CONTROLS)}<p><strong>Thanks,</strong></p></div></body></html>'''
+    message.add_alternative(html, subtype="html")
     for attachment in attachments:
         content_type = attachment["content_type"]
         maintype, subtype = content_type.split("/", 1)
@@ -636,7 +684,7 @@ def generate(data: dict, output_dir: Path | None = None) -> dict:
     primary = output_dir / f"MRMG First Line Submission{'.docm' if SOURCE_DOCM.exists() else '.docx'}"; json_path = output_dir / "submission.json"
     serializable = {key: value for key, value in enriched.items() if key != "supportingFiles"}
     serializable["supportingFileNames"] = [item.get("name") for item in as_list(enriched.get("supportingFiles"))]
-    json_path.write_text(json.dumps(serializable, indent=2), encoding="utf-8"); build_prompt_doc(enriched, prompt); build_monitoring_doc(enriched, monitoring); build_attestation_doc(enriched, attestation_path); patch_word_package(attestation_path, footnote_texts={1: FOOTNOTE_TEXT[2]})
+    json_path.write_text(json.dumps(serializable, indent=2), encoding="utf-8"); build_prompt_doc(enriched, prompt); build_monitoring_doc(enriched, monitoring); build_attestation_doc(enriched, attestation_path)
     env = os.environ.copy(); env["NODE_PATH"] = str(NODE_MODULES)
     subprocess.run([str(NODE), str(ROOT / "generate_workbook.mjs"), str(json_path), str(workbook)], check=True, env=env, capture_output=True, text=True)
     optional_paths = []

@@ -4,11 +4,34 @@ const XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`;
 const COLORS = { blue: "365C73", navy: "203864", ink: "111111", gray: "666666", lightBlue: "D9E2F3", line: "7F7F7F", yellow: "FFF200", magenta: "C000A0" };
 const ATTESTATIONS = [
   "All information provided regarding the use case in the model documentation is accurate.",
-  "If used in the EU market, the use does not fall under Prohibited AI practices or High-risk AI systems under the EU AI Act; otherwise this item is not applicable.",
+  "If the use case is used in the EU market, its usage does not fall under Prohibited AI practices or High-risk AI systems as defined by the EU AI Act.",
   "Mandatory controls have been tested for effectiveness and will be implemented in production.",
-  "Residual risk is understood, accepted, and within the business risk appetite.",
-  "The model will be used only within the intended scope described in the documentation.",
+  "The residual risk is understood, acceptable, and within the business risk appetite.",
+  "Model will be used within the intended scope only as described in this document.",
 ];
+const B70_ATTACHMENTS = [
+  "Completed model documentation with use case overview",
+  "Outcome testing results of the use-case with reported model performance",
+  "Ongoing Monitoring Plan* for annual monitoring and reporting of the use case",
+];
+const B70_APPLICABILITY_NOTE = "*Not applicable for Medium impact Customer Facing Pilot use cases";
+const MANDATORY_CONTROLS = [
+  "User access control",
+  "Disclaimers to inform use of AI",
+  "Incident reporting OR backup options in case of discontinuation or disruption of service",
+  "Usage of approved upstream models (if applicable)",
+  "Prevention of sensitive data leakage and blocking of harmful content, e.g., AI Firewall, etc.",
+  "Robust implementation and change management control (segregated dev/test/prod; approvals for releases; rollback path)",
+];
+function b70FormalAttestations() {
+  return [
+    ["Use Within Scope", "The application will be used strictly as described in this document and the attached model documentation. The usage is bounded within the defined scope and intended purpose."],
+    ["Mandatory Control Effectiveness and Implementation", "Appropriate risk controls would be implemented and effective in production."],
+    ["Testing Effectiveness", "Testing and validation activities performed are sufficient and demonstrate that the model performance is acceptable for business usage."],
+    ["Residual Risk Acceptance", "Considering the implemented controls, and testing results, the residual risk associated with this use case is acceptable and within the business risk appetite."],
+    ["Ongoing Monitoring*", "Ongoing monitoring of the application will be conducted at an appropriate frequency (at least annually), with defined metrics and thresholds aligned to the business use of the application."],
+  ];
+}
 const BUSINESS_RULES = {
   "Credit and Fraud Risk": {
     "Account Receivable / Billed Business": ["≤ $1B", "$1B–$10B", "> $10B"],
@@ -92,6 +115,7 @@ function p(content = "", options = {}) {
     options.indent ? `<w:ind w:left="${options.indent}" w:hanging="${options.hanging || 0}"/>` : "",
     options.align ? `<w:jc w:val="${options.align}"/>` : "",
     options.leftBorder ? `<w:pBdr><w:left w:val="single" w:sz="16" w:space="7" w:color="${COLORS.magenta}"/></w:pBdr>` : "",
+    options.bottomBorder ? `<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="7" w:color="7F7F7F"/></w:pBdr>` : "",
   ].join("");
   return `<w:p><w:pPr>${pPr}</w:pPr>${runs}</w:p>`;
 }
@@ -163,7 +187,7 @@ function footnotesXml(notes = []) {
   return `${XML}<w:footnotes xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:footnote w:type="separator" w:id="-1"><w:p><w:r><w:separator/></w:r></w:p></w:footnote><w:footnote w:type="continuationSeparator" w:id="0"><w:p><w:r><w:continuationSeparator/></w:r></w:p></w:footnote>${notes.map((text, index) => note(index + 1, text)).join("")}</w:footnotes>`;
 }
 
-async function makeDocx(title, body, embeddings = [], footnotes = []) {
+async function makeDocx(title, body, embeddings = [], footnotes = [], options = {}) {
   const zip = new JSZip();
   const embeddedTypes = embeddings.map((item, index) => `<Override PartName="/word/embeddings/embedded${index + 1}.${x(item.filename.split(".").pop().toLowerCase())}" ContentType="${x(item.contentType || mimeFor(item.filename))}"/>`).join("");
   zip.file("[Content_Types].xml", `${XML}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/><Override PartName="/word/footnotes.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>${embeddedTypes}</Types>`);
@@ -173,7 +197,8 @@ async function makeDocx(title, body, embeddings = [], footnotes = []) {
   zip.folder("word").file("settings.xml", `${XML}<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:zoom w:percent="100"/><w:defaultTabStop w:val="720"/><w:compat/></w:settings>`);
   zip.folder("word").file("styles.xml", `${XML}<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:color w:val="${COLORS.ink}"/><w:sz w:val="21"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="100" w:line="240" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style><w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:after="100"/></w:pPr><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:color w:val="${COLORS.blue}"/><w:sz w:val="40"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:keepNext/><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:color w:val="${COLORS.blue}"/><w:sz w:val="31"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:keepNext/><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:b/><w:color w:val="${COLORS.ink}"/><w:sz w:val="24"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="FootnoteText"><w:name w:val="footnote text"/><w:basedOn w:val="Normal"/><w:rPr><w:sz w:val="18"/></w:rPr></w:style><w:style w:type="character" w:styleId="FootnoteReference"><w:name w:val="footnote reference"/><w:rPr><w:vertAlign w:val="superscript"/><w:sz w:val="16"/></w:rPr></w:style></w:styles>`);
   zip.folder("word").file("footnotes.xml", footnotesXml(footnotes));
-  zip.folder("word").file("document.xml", `${XML}<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"><w:body>${p(title, { style: "Title", after: 100 })}${body}<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="936" w:right="1296" w:bottom="936" w:left="1296" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr></w:body></w:document>`);
+  const titleBlock = options.renderTitle === false ? "" : p(title, { style: "Title", after: 100 });
+  zip.folder("word").file("document.xml", `${XML}<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"><w:body>${titleBlock}${body}<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="936" w:right="1296" w:bottom="936" w:left="1296" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr></w:body></w:document>`);
   for (const [index, item] of embeddings.entries()) zip.folder("word").folder("embeddings").file(`embedded${index + 1}.${item.filename.split(".").pop().toLowerCase()}`, item.data);
   const props = zip.folder("docProps");
   props.file("core.xml", `${XML}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${x(title)}</dc:title><dc:creator>MRMG First Line Portal</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString()}</dcterms:created></cp:coreProperties>`);
@@ -297,22 +322,25 @@ function monitoringBody(data, metrics) {
 }
 
 function attestationBody(data) {
-  let body = p(r("Subject: ", { bold: true }) + r(`B70+ Attestation for GenAI Use Case – ${data.useCaseName}`), { raw: true });
-  body += p(`Dear ${data.businessOwnerName},`) + p("To proceed with model risk certification, a formal attestation from the business owner (B70+) is required.");
-  body += p("This attestation serves as confirmation that the use case information, control environment, testing, residual risk, and ongoing monitoring plan have been reviewed and approved.");
+  let body = p("Reference Template for B70+ Attestation", { bold: true, underline: true, size: 12, after: 180 });
+  body += p(r("Subject: ", { bold: true }) + r(`B70+ Attestation for GenAI Use Case - ${data.useCaseName}`), { raw: true });
+  body += p(`Dear ${data.businessOwnerName},`) + p(`To proceed with model risk certification for the GenAI use case ${data.useCaseName}, a formal attestation from the business owner (B70+) is required.`);
+  body += p("This attestation serves as confirmation that:");
+  body += bullet(ATTESTATIONS[0]);
+  body += bullet(ATTESTATIONS[1]);
+  body += p(r("•  ") + r("Mandatory controls¹") + r(" have been tested for effectiveness and will be implemented in production."), { raw: true, indent: 520, hanging: 260, after: 65 });
+  body += bullet(ATTESTATIONS[3]);
+  body += bullet(ATTESTATIONS[4]);
   body += p("Please find attached:", { bold: true });
-  ["Completed model documentation", "Outcome testing results", "Ongoing monitoring plan"].forEach(item => { body += bullet(item); });
-  body += heading("Attestation") + p("As the designated business owner, I confirm the following:");
-  const formal = [
-    ["Use Within Scope", "The model will be used only within the intended scope described in the submitted documentation."],
-    ["Mandatory Control Effectiveness and Implementation", "Mandatory controls have been tested for effectiveness and will be implemented in production."],
-    ["Testing Effectiveness", "The testing performed is appropriate for the use case and supports the conclusions documented in the submission."],
-    ["Residual Risk Acceptance", "Residual risk is understood, accepted, and within the business risk appetite."],
-    ["Ongoing Monitoring", `Ongoing monitoring will be performed at least annually; the submitted plan currently specifies a ${String(data.monitoringFrequency || "annual").toLowerCase()} cadence.`],
-  ];
-  formal.forEach(([name, text], i) => { body += p(r(`${i + 1}. ${name}\n`, { bold: true }) + r(text), { raw: true, indent: 240, hanging: 240 }); });
-  body += p(r("Mandatory controls are defined in the framework", { italic: true, size: 9 }) + footnoteReference(1), { raw: true });
-  body += heading("Approval", 2) + lineValue("Name:", data.businessOwnerName) + lineValue("Email:", data.businessOwnerEmail) + lineValue("Title:", data.businessOwnerTitle) + lineValue("Date:", todayDisplay());
+  B70_ATTACHMENTS.forEach(item => { body += bullet(item); });
+  body += p(B70_APPLICABILITY_NOTE, { italic: true, size: 8.5 });
+  body += p("Attestation", { bold: true, size: 12, before: 160, keepNext: true }) + p("As the designated business owner (B70+), I confirm the following:");
+  b70FormalAttestations().forEach(([name, text], i) => { body += p(r(`${i + 1}. ${name}\n`, { bold: true }) + r(text), { raw: true, indent: 240, hanging: 240 }); });
+  body += p(B70_APPLICABILITY_NOTE, { italic: true, size: 8.5 });
+  body += p("", { bottomBorder: true, after: 100 });
+  body += p("¹ Mandatory controls include but are not limited to:", { size: 9, before: 180 });
+  MANDATORY_CONTROLS.forEach(item => { body += bullet(item, { size: 9 }); });
+  body += p("Thanks,", { bold: true, before: 160 });
   return body;
 }
 
@@ -324,24 +352,37 @@ function base64Lines(bytes) {
 
 function makeB70Email(data, attachments) {
   const safeHeader = value => String(value || "").replace(/[\r\n]+/g, " ").trim();
-  const body = [
+  const plainBody = [
     `Dear ${safeHeader(data.businessOwnerName)},`, "",
-    "To proceed with model risk certification, a formal attestation from the business owner (B70+) is required.", "",
+    `To proceed with model risk certification for the GenAI use case ${safeHeader(data.useCaseName)}, a formal attestation from the business owner (B70+) is required.`, "",
     "This attestation serves as confirmation that:",
-    "1. The model will be used only within the intended scope described in the documentation.",
-    "2. Mandatory controls have been tested for effectiveness and will be implemented in production.",
-    "3. Testing performed is appropriate for the use case and supports the documented conclusions.",
-    "4. Residual risk is understood, accepted, and within the business risk appetite.",
-    `5. Ongoing monitoring will be completed at least annually; the submitted plan specifies a ${String(data.monitoringFrequency || "annual").toLowerCase()} cadence.`, "",
+    `- ${ATTESTATIONS[0]}`,
+    `- ${ATTESTATIONS[1]}`,
+    "- Mandatory controls¹ have been tested for effectiveness and will be implemented in production.",
+    `- ${ATTESTATIONS[3]}`,
+    `- ${ATTESTATIONS[4]}`, "",
     "Please find attached:",
-    "- Completed model documentation",
-    "- Outcome testing results",
-    "- Ongoing monitoring plan", "",
-    "Please reply confirming your approval of the above attestation.", "",
-    "Regards,", safeHeader(data.modelOwner), safeHeader(data.modelOwnerEmail), "",
+    ...B70_ATTACHMENTS.map(item => `- ${item}`),
+    B70_APPLICABILITY_NOTE, "",
+    "Attestation", "",
+    "As the designated business owner (B70+), I confirm the following:", "",
+    ...b70FormalAttestations().flatMap(([name, text], i) => [`${i + 1}. ${name}`, text, ""]),
+    B70_APPLICABILITY_NOTE, "",
+    "------------------------------------------------------------", "",
+    "¹ Mandatory controls include but are not limited to:",
+    ...MANDATORY_CONTROLS.map(item => `- ${item}`), "",
+    "Thanks,", "",
   ].join("\r\n");
+  const htmlList = items => `<ul>${items.map(item => `<li>${x(item)}</li>`).join("")}</ul>`;
+  const htmlBody = `<!doctype html><html><body style="margin:0;background:#ffffff;color:#111111;font-family:Arial,sans-serif;font-size:11pt;line-height:1.35"><div style="max-width:720px;margin:0;padding:8px 4px"><p>Dear ${x(safeHeader(data.businessOwnerName))},</p><p>To proceed with <strong>model risk certification</strong> for the GenAI use case ${x(safeHeader(data.useCaseName))}, a formal attestation from the business owner (B70+) is required.</p><p><strong>This attestation serves as confirmation that:</strong></p>${htmlList([ATTESTATIONS[0], ATTESTATIONS[1], "Mandatory controls¹ have been tested for effectiveness and will be implemented in production.", ATTESTATIONS[3], ATTESTATIONS[4]])}<p><strong>Please find attached:</strong></p>${htmlList(B70_ATTACHMENTS)}<p style="font-size:9pt"><em>${x(B70_APPLICABILITY_NOTE)}</em></p><p style="font-size:13pt"><strong>Attestation</strong></p><p>As the designated business owner (B70+), I confirm the following:</p>${b70FormalAttestations().map(([name, text], i) => `<p style="margin-left:18px"><strong>${i + 1}. ${x(name)}</strong><br>${x(text)}</p>`).join("")}<p style="font-size:9pt"><em>${x(B70_APPLICABILITY_NOTE)}</em></p><hr style="border:0;border-top:1px solid #777;margin:18px 0"><p><sup>1</sup> <strong>Mandatory controls</strong> include but are not limited to:</p>${htmlList(MANDATORY_CONTROLS)}<p><strong>Thanks,</strong></p></div></body></html>`;
   const boundary = `----MRMG-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const parts = [`--${boundary}`, "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: 8bit", "", body];
+  const alternativeBoundary = `${boundary}-alternative`;
+  const parts = [
+    `--${boundary}`, `Content-Type: multipart/alternative; boundary="${alternativeBoundary}"`, "",
+    `--${alternativeBoundary}`, "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: 8bit", "", plainBody,
+    `--${alternativeBoundary}`, "Content-Type: text/html; charset=UTF-8", "Content-Transfer-Encoding: 8bit", "", htmlBody,
+    `--${alternativeBoundary}--`, "",
+  ];
   for (const item of attachments) parts.push(
     `--${boundary}`,
     `Content-Type: ${item.contentType}; name="${safeHeader(item.filename)}"`,
@@ -394,7 +435,7 @@ export async function generateBrowserPackage(data, supportingFiles = []) {
   const [prompts, monitoring, attestation, workbook] = await Promise.all([
     makeDocx("LLM Prompt Documentation Template", promptBody(safe)),
     makeDocx("Ongoing Monitoring Plan", monitoringBody(safe, metrics)),
-    makeDocx("Reference Template for B70+ Attestation", attestationBody(safe), [], [FOOTNOTES[1]]),
+    makeDocx("Reference Template for B70+ Attestation", attestationBody(safe), [], [], { renderTitle: false }),
     makeXlsx(safe, metrics),
   ]);
   const supportingEmbeddings = [];
