@@ -11,7 +11,7 @@ A step-by-step GenAI model-risk intake that implements the routing and scoring r
 - Regulatory-reporting use forces the quantitative component to 3.
 - Business-process choices constrain the available quantitative drivers and display the matching annual Small, Medium, and Large thresholds.
 - “More than 2 sequential LLM calls” requires at least three fully documented prompt-call records.
-- Both outcome-analysis metrics require Green, Amber, and Red monitoring thresholds.
+- The first outcome-analysis metric is required; users can add any number of additional metrics. Every added metric requires a value, rationale, and Green/Amber/Red thresholds.
 
 ## Local package generation
 
@@ -35,9 +35,16 @@ Local mode creates a ZIP containing:
 
 ## GitHub Pages
 
-The Pages deployment is intentionally browser-only. It supports the complete intake, routing, scoring, validation, local draft storage, and validated JSON export. GitHub Pages cannot run the private Python/Node document generator, so Word/Excel ZIP generation remains available through the local service.
+The public Pages portal supports the complete intake, routing, scoring, validation, local draft storage, and full submission-package generation. Because GitHub Pages cannot execute the Python service, a browser-side generator creates four Word documents, the Outcome Analysis Excel workbook, submission JSON, optional supporting documents, and the final ZIP entirely on the user's device. Answers and attachments are not transmitted to GitHub or another server.
 
-The workflow in `.github/workflows/pages.yml` publishes only `static/`. It does not deploy source scans, documents, spreadsheets, PDFs, images, user submissions, or generated packages.
+The workflow in `.github/workflows/pages.yml` installs the browser dependencies, builds the static application with Vite, and publishes only `dist/`. It does not commit or deploy source scans, documents, spreadsheets, PDFs, images, user submissions, or generated packages.
+
+Build locally with:
+
+```bash
+pnpm install
+pnpm build
+```
 
 ## Original macro-enabled template
 
@@ -51,4 +58,8 @@ The generated supporting files are separate usable files in the ZIP. True clicka
 python3 -m unittest discover -s tests -v
 ```
 
-The suite covers routing, MIC bands and exact boundaries, process/driver validation, prompt-call count rules, Section 2 inclusion/omission, Word and Excel generation, B70+ Word output, ZIP integrity, optional DOCM macro preservation, and HTTP generation/download.
+The suite covers routing, MIC bands and exact boundaries, process/driver validation, repeatable metrics, prompt-call count rules, Section 2 inclusion/omission, Word and Excel generation, B70+ Word output, ZIP integrity, optional DOCM macro preservation, and HTTP generation/download. The browser package builder has a separate Node test:
+
+```bash
+pnpm test:browser-generator
+```

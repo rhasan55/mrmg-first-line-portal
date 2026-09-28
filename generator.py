@@ -97,14 +97,37 @@ def prompt_calls(data: dict) -> list[dict]:
     return [{field: values[field][index] if index < len(values[field]) else "" for field in fields} for index in range(count)]
 
 
+def metrics(data: dict) -> list[dict]:
+    fields = ["metricName", "metricValue", "metricRationale", "metricGreen", "metricAmber", "metricRed"]
+    if data.get("metricName"):
+        values = {field: as_list(data.get(field)) for field in fields}
+        count = max((len(value) for value in values.values()), default=0)
+        return [{field: values[field][index] if index < len(values[field]) else "" for field in fields} for index in range(count)]
+    result = []
+    for number in (1, 2):
+        item = {
+            "metricName": data.get(f"metric{number}", ""),
+            "metricValue": data.get(f"metric{number}Value", ""),
+            "metricRationale": data.get(f"metric{number}Rationale", ""),
+            "metricGreen": data.get(f"metric{number}Green", ""),
+            "metricAmber": data.get(f"metric{number}Amber", ""),
+            "metricRed": data.get(f"metric{number}Red", ""),
+        }
+        if any(str(value).strip() for value in item.values()): result.append(item)
+    return result
+
+
 def validate(data: dict) -> list[str]:
     required = ["solutionType"]
     if data.get("solutionType") != "general":
         required += ["regulatory", "purpose"]
-    required += ["useCaseName", "modelOwner", "businessUnit", "implementationDate", "overview", "modelInputs", "generatedOutputs", "modelName", "modelVersion", "hosting", "agentic", "sampleSize", "metric1", "metric1Value", "metric1Rationale", "metric2", "metric2Value", "metric2Rationale", "metric1Green", "metric1Amber", "metric1Red", "metric2Green", "metric2Amber", "metric2Red", "monitoringFrequency", "businessOwnerName", "businessOwnerTitle"]
+    required += ["useCaseName", "modelOwner", "businessUnit", "implementationDate", "overview", "modelInputs", "generatedOutputs", "modelName", "modelVersion", "hosting", "agentic", "sampleSize", "monitoringFrequency", "businessOwnerName", "businessOwnerTitle"]
     if routing(data)["needs_assessment"]:
         required += ["endUsers", "businessProcess", "quantDriver", "impactThreshold", "reliance", "explainable", "fineTuned", "multiCall", "downstream"]
     missing = [name for name in required if not str(data.get(name, "")).strip()]
+    submitted_metrics = metrics(data)
+    if not submitted_metrics or any(not str(value).strip() for metric in submitted_metrics for value in metric.values()):
+        missing.append("metrics")
     calls = prompt_calls(data)
     if not calls:
         missing.append("promptCalls")
@@ -291,10 +314,11 @@ def build_monitoring_doc(data, path):
     doc = base_document()
     p = doc.add_paragraph(); r = p.add_run("Example for Ongoing Monitoring Plan"); r.bold = True; r.underline = True; r.font.name = "Arial"; r.font.size = Pt(14)
     doc.add_paragraph(f"Please specify the {data.get('monitoringFrequency','annual').lower()} ongoing monitoring plan and include details (for e.g. sample size, performance metrics like accuracy / hallucination rate / acceptance rate / user satisfaction, etc.).")
+    submitted_metrics = metrics(data)
     p = doc.add_paragraph(); p.add_run("Model performance metric(s):").bold = True
-    doc.add_paragraph(f"1. {data.get('metric1', '')} — {data.get('metric1Value', '')}\n2. {data.get('metric2', '')} — {data.get('metric2Value', '')}", style=None)
+    doc.add_paragraph("\n".join(f"{index}. {metric['metricName']} — {metric['metricValue']}" for index, metric in enumerate(submitted_metrics, 1)), style=None)
     doc.add_paragraph("Note: In case the performance metrics being tracked are not aligned with model outcomes analysis, please provide a rationale for the choice of model performance metric(s).")
-    p = doc.add_paragraph(); p.add_run("Rationale for model performance metrics: ").bold = True; p.add_run(f"{data.get('metric1Rationale', '')} {data.get('metric2Rationale', '')}")
+    p = doc.add_paragraph(); p.add_run("Rationale for model performance metrics: ").bold = True; p.add_run(" ".join(metric["metricRationale"] for metric in submitted_metrics))
     p = doc.add_paragraph(); p.paragraph_format.space_before = Pt(12); p.add_run("Sample size:").bold = True
     doc.add_paragraph(f"For model performance monitoring, {data.get('sampleSize','')} records from production data will be used.")
     p = doc.add_paragraph(); p.paragraph_format.space_before = Pt(12); p.add_run("Thresholds and Action Plan:").bold = True
@@ -304,10 +328,10 @@ def build_monitoring_doc(data, path):
         "Green": "• Continue planned monitoring\n• Retain testing evidence and reviewer conclusions",
     }
     rows = []
-    for metric_number in (1, 2):
-        metric = data.get(f"metric{metric_number}", f"Metric {metric_number}")
+    for metric_data in submitted_metrics:
+        metric = metric_data["metricName"]
         for status in ("Red", "Amber", "Green"):
-            rows.append([metric, status, data.get(f"metric{metric_number}{status}"), action[status]])
+            rows.append([metric, status, metric_data[f"metric{status}"], action[status]])
     table = grid_table(doc, ["Metric", "Status", "Threshold of the Testing / Metric", "Action Plan"], rows, [1.15, .75, 1.75, 3.15])
     for row in table.rows[1:]:
         status = row.cells[1].text.strip(); shade(row.cells[1], "FF0000" if status == "Red" else "FFC000" if status == "Amber" else "00B050")
@@ -493,7 +517,7 @@ def build_primary(data, result, path):
 def generate(data: dict, output_dir: Path | None = None) -> dict:
     missing = validate(data)
     if missing: raise ValueError("Missing required fields: " + ", ".join(missing))
-    result = assess(data); enriched = {**data, "impactTier": result["tier"], "assessmentScore": result["score"], "assessmentComponents": result["components"], "section2Included": routing(data)["needs_assessment"]}
+    result = assess(data); enriched = {**data, "metrics": metrics(data), "impactTier": result["tier"], "assessmentScore": result["score"], "assessmentComponents": result["components"], "section2Included": routing(data)["needs_assessment"]}
     slug = re.sub(r"[^a-z0-9]+", "-", data["useCaseName"].lower()).strip("-")[:48] or "submission"
     output_dir = output_dir or GENERATED / f"{datetime.now():%Y%m%d-%H%M%S}-{slug}"; output_dir.mkdir(parents=True, exist_ok=True)
     prompt, monitoring, workbook, attestation_path = output_dir / "Prompt Submission Template.docx", output_dir / "Ongoing Monitoring Plan.docx", output_dir / "Outcome Analysis.xlsx", output_dir / "B70+ Attestation Template.docx"

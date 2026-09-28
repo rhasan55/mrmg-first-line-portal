@@ -1,0 +1,16 @@
+{
+  "name": "mrmg-first-line-portal",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "test:browser-generator": "node tests/test_browser_generator.mjs"
+  },
+  "dependencies": {
+    "jszip": "3.10.2"
+  },
+  "devDependencies": {
+    "vite": "8.3.1"
+  }
+}

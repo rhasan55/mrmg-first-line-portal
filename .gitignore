@@ -37,5 +37,6 @@ templates/source.docm
 __pycache__/
 *.py[cod]
 node_modules/
+dist/
 .DS_Store
 *.inspect.ndjson

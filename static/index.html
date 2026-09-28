@@ -92,23 +92,13 @@
 
           <section class="step" data-step="evidence">
             <div class="intro"><p class="overline">Evidence package</p><h3>Define validation, monitoring, and attestation.</h3><p>Each generated supporting file is saved separately in the submission ZIP.</p></div>
-            <div class="grid two">
-              <label>Sample size <span class="req">*</span><input type="number" min="1" name="sampleSize" required placeholder="e.g., 1447"></label>
-              <label>Performance metric 1 <span class="req">*</span><input name="metric1" required placeholder="e.g., Accuracy"></label>
-              <label>Metric 1 value <span class="req">*</span><input name="metric1Value" required placeholder="e.g., 82%"></label>
-              <label>Metric 1 rationale <span class="req">*</span><input name="metric1Rationale" required placeholder="Why this metric fits the use case"></label>
-              <label>Performance metric 2 <span class="req">*</span><input name="metric2" required placeholder="e.g., Hallucination rate"></label>
-              <label>Metric 2 value <span class="req">*</span><input name="metric2Value" required placeholder="e.g., 3%"></label>
-            </div>
-            <label>Metric 2 rationale <span class="req">*</span><textarea name="metric2Rationale" rows="3" required placeholder="Why this second metric fits the use case"></textarea></label>
+            <label>Sample size <span class="req">*</span><input type="number" min="1" name="sampleSize" required placeholder="e.g., 1447"></label>
+            <div class="metric-header"><div><strong>Performance metrics</strong><p class="hint">Metric 1 is required. Add as many additional metrics as the use case needs.</p></div><button type="button" class="ghost" id="addMetric">Add metric</button></div>
+            <div id="metrics"></div>
             <div class="prompt-header"><div><strong>LLM calls</strong><p class="hint">Document every call. Selecting “more than 2” in Section 2 requires at least three completed call records.</p></div><button type="button" class="ghost" id="addPromptCall">Add LLM call</button></div>
             <div id="promptCalls"></div>
-            <div class="grid two">
-              <label>Metric 1 green threshold <span class="req">*</span><input name="metric1Green" required placeholder="e.g., Accuracy ≥ 80%"></label><label>Metric 1 amber threshold <span class="req">*</span><input name="metric1Amber" required placeholder="e.g., 65% ≤ Accuracy &lt; 80%"></label><label>Metric 1 red threshold <span class="req">*</span><input name="metric1Red" required placeholder="e.g., Accuracy &lt; 65%"></label>
-              <label>Metric 2 green threshold <span class="req">*</span><input name="metric2Green" required placeholder="e.g., Hallucination rate ≤ 3%"></label><label>Metric 2 amber threshold <span class="req">*</span><input name="metric2Amber" required placeholder="e.g., 3% &lt; rate ≤ 5%"></label><label>Metric 2 red threshold <span class="req">*</span><input name="metric2Red" required placeholder="e.g., Hallucination rate &gt; 5%"></label>
-              <label>Monitoring frequency <span class="req">*</span><select name="monitoringFrequency" required><option>Annual</option><option>Quarterly</option><option>Monthly</option></select></label>
-            </div>
-            <label>Optional supporting documents<input id="supportingFiles" type="file" multiple><span class="hint">Local generation adds selected files to a Supporting Documents folder inside the ZIP. Files are never saved in the browser draft.</span></label>
+            <label>Monitoring frequency <span class="req">*</span><select name="monitoringFrequency" required><option>Annual</option><option>Quarterly</option><option>Monthly</option></select></label>
+            <label>Optional supporting documents<input id="supportingFiles" type="file" multiple><span class="hint">Package generation adds selected files to a Supporting Documents folder inside the ZIP. Files are never saved in the browser draft or uploaded.</span></label>
             <fieldset data-required-all="attestation"><legend>B70+ business attestation checklist <span class="req">*</span></legend>
               <label class="tick wide"><input type="checkbox" name="attestation" value="accurate"> Information in the model documentation is accurate</label>
               <label class="tick wide"><input type="checkbox" name="attestation" value="eu"> EU use is not prohibited or high-risk, or EU is not applicable</label>
@@ -127,7 +117,7 @@
             <div class="intro"><p class="overline">Review</p><h3>Generate the complete submission package.</h3><p>Required fields are enforced here, after allowing free movement among sections.</p></div>
             <div id="reviewSummary" class="review-grid"></div>
             <div id="missingSummary" class="missing-summary" hidden></div>
-            <div class="generation-note"><strong>Output integrity</strong><p>Local mode creates a ZIP containing the primary Word questionnaire, Outcome Analysis workbook, Prompt Submission document, Ongoing Monitoring Plan, B70+ Word attestation, submission JSON, and optional supporting files. Low-impact routes omit Section 2 entirely. GitHub Pages exports validated JSON because static hosting cannot run the private document generator.</p></div>
+            <div class="generation-note"><strong>Private, browser-side generation</strong><p>The public site creates the primary Word questionnaire, Outcome Analysis workbook, Prompt Submission document, Ongoing Monitoring Plan, B70+ Word attestation, JSON, and final ZIP entirely on this device. Your answers and attachments are not uploaded. Low-impact routes omit Section 2.</p></div>
             <button type="button" class="generate" id="generateBtn"><span>Generate submission package</span><small>Word + Excel + Word templates + JSON + ZIP</small></button>
             <div id="generationStatus" class="generation-status" role="status"></div>
           </section>
@@ -137,6 +127,6 @@
       </section>
     </main>
   </div>
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

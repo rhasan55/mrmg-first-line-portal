@@ -11,7 +11,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import generator
-from generator import BUSINESS_RULES, assess, generate, routing, tier_for_mic, validate
+from generator import BUSINESS_RULES, assess, generate, metrics, routing, tier_for_mic, validate
 from server import Handler
 from docx import Document
 
@@ -83,6 +83,23 @@ class RulesTests(unittest.TestCase):
     def test_multicall_requires_three_documented_calls(self):
         data = sample("high"); data["multiCall"] = "yes"
         self.assertIn("promptCalls", validate(data))
+
+    def test_one_metric_is_valid_and_metrics_are_repeatable(self):
+        one = sample("low")
+        for field in ["metric2", "metric2Value", "metric2Rationale", "metric2Green", "metric2Amber", "metric2Red"]:
+            one.pop(field)
+        self.assertNotIn("metrics", validate(one))
+        three = sample("low")
+        three.update({
+            "metricName": ["Accuracy", "Hallucination rate", "User satisfaction"],
+            "metricValue": ["82%", "3%", "4.5/5"],
+            "metricRationale": ["Measures correctness", "Measures unsupported claims", "Measures utility"],
+            "metricGreen": [">= 80%", "<= 3%", ">= 4/5"],
+            "metricAmber": ["65-79%", "3-5%", "3-3.9/5"],
+            "metricRed": ["< 65%", "> 5%", "< 3/5"],
+        })
+        self.assertNotIn("metrics", validate(three))
+        self.assertEqual([item["metricName"] for item in metrics(three)], ["Accuracy", "Hallucination rate", "User satisfaction"])
 
 
 class GenerationTests(unittest.TestCase):

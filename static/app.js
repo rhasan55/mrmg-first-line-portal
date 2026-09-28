@@ -45,25 +45,47 @@ const routingResult = document.querySelector("#routingResult");
 const assessmentResult = document.querySelector("#assessmentResult");
 const scoreBreakdown = document.querySelector("#scoreBreakdown");
 const missingSummary = document.querySelector("#missingSummary");
-const STATIC_MODE = !["localhost", "127.0.0.1"].includes(location.hostname);
+const STATIC_MODE = new URLSearchParams(location.search).get("browser") === "1" || !["localhost", "127.0.0.1"].includes(location.hostname);
 let index = 0;
 
 const promptFields = ["promptCallName", "promptCallPurpose", "promptCallText", "promptCallConstraints", "promptCallOutputFormat", "promptCallExampleInput", "promptCallExampleOutput", "promptCallVersion"];
+const metricFields = ["metricName", "metricValue", "metricRationale", "metricGreen", "metricAmber", "metricRed"];
 const fieldLabels = {
   solutionType: "GenAI solution type", regulatory: "Regulatory reporting use", purpose: "Purpose and business usage",
   useCaseName: "Use case name", modelOwner: "Model owner", businessUnit: "Business unit", implementationDate: "Implementation date", markets: "At least one market", otherMarket: "Other market", overview: "Use case overview", modelInputs: "Model inputs", generatedOutputs: "Generated outputs", modelName: "Model name", modelVersion: "Model version", hosting: "Hosting location", agentic: "Agentic AI response",
   endUsers: "Intended end users", businessProcess: "Business process", quantDriver: "Valid quantitative driver", impactThreshold: "Annual impact threshold", reliance: "Business importance / reliance", explainable: "Explainability", fineTuned: "Fine-tuning", multiCall: "Sequential LLM calls", downstream: "Downstream interdependency",
-  sampleSize: "Sample size", metric1: "Performance metric 1", metric1Value: "Metric 1 value", metric1Rationale: "Metric 1 rationale", metric2: "Performance metric 2", metric2Value: "Metric 2 value", metric2Rationale: "Metric 2 rationale", promptCalls: "Complete documentation for every LLM call", metric1Green: "Metric 1 green threshold", metric1Amber: "Metric 1 amber threshold", metric1Red: "Metric 1 red threshold", metric2Green: "Metric 2 green threshold", metric2Amber: "Metric 2 amber threshold", metric2Red: "Metric 2 red threshold", monitoringFrequency: "Monitoring frequency", attestation: "All five B70+ attestations", businessOwnerName: "B70+ business owner", businessOwnerTitle: "B70+ title",
+  sampleSize: "Sample size", metrics: "At least one complete performance metric", promptCalls: "Complete documentation for every LLM call", monitoringFrequency: "Monitoring frequency", attestation: "All five B70+ attestations", businessOwnerName: "B70+ business owner", businessOwnerTitle: "B70+ title",
 };
 const stepForField = Object.fromEntries([
   ["routing", ["solutionType", "regulatory", "purpose"]],
   ["details", ["useCaseName", "modelOwner", "businessUnit", "implementationDate", "markets", "otherMarket", "overview", "modelInputs", "generatedOutputs", "modelName", "modelVersion", "hosting", "agentic"]],
   ["assessment", ["endUsers", "businessProcess", "quantDriver", "impactThreshold", "reliance", "explainable", "fineTuned", "multiCall", "downstream"]],
-  ["evidence", ["sampleSize", "metric1", "metric1Value", "metric1Rationale", "metric2", "metric2Value", "metric2Rationale", "promptCalls", "metric1Green", "metric1Amber", "metric1Red", "metric2Green", "metric2Amber", "metric2Red", "monitoringFrequency", "attestation", "businessOwnerName", "businessOwnerTitle"]],
+  ["evidence", ["sampleSize", "metrics", "promptCalls", "monitoringFrequency", "attestation", "businessOwnerName", "businessOwnerTitle"]],
 ].flatMap(([stepId, names]) => names.map(name => [name, stepId])));
 
 function esc(value) { return String(value ?? "").replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char])); }
 function values(value) { return Array.isArray(value) ? value : value ? [value] : []; }
+
+function addMetric(seed = {}) {
+  const card = document.createElement("fieldset");
+  card.className = "metric-card";
+  card.innerHTML = `<legend>Metric <span class="metric-number"></span></legend><button type="button" class="remove-metric">Remove</button><div class="grid two">
+    <label>Metric name <span class="req">*</span><input name="metricName" value="${esc(seed.metricName || "")}" placeholder="e.g., Accuracy"></label>
+    <label>Observed value <span class="req">*</span><input name="metricValue" value="${esc(seed.metricValue || "")}" placeholder="e.g., 82%"></label>
+  </div><label>Why this metric fits the use case <span class="req">*</span><textarea name="metricRationale" rows="3">${esc(seed.metricRationale || "")}</textarea></label>
+  <div class="grid two"><label>Green threshold <span class="req">*</span><input name="metricGreen" value="${esc(seed.metricGreen || "")}" placeholder="e.g., Accuracy ≥ 80%"></label><label>Amber threshold <span class="req">*</span><input name="metricAmber" value="${esc(seed.metricAmber || "")}" placeholder="e.g., 65% ≤ Accuracy &lt; 80%"></label><label>Red threshold <span class="req">*</span><input name="metricRed" value="${esc(seed.metricRed || "")}" placeholder="e.g., Accuracy &lt; 65%"></label></div>`;
+  document.querySelector("#metrics").append(card);
+  renumberMetrics();
+}
+function renumberMetrics() {
+  const cards = [...document.querySelectorAll(".metric-card")];
+  cards.forEach((card, i) => { card.querySelector(".metric-number").textContent = String(i + 1); card.querySelector(".remove-metric").hidden = cards.length === 1; });
+}
+function metricsFromData(data = formData()) {
+  const fields = Object.fromEntries(metricFields.map(field => [field, values(data[field])]));
+  const count = Math.max(0, ...metricFields.map(field => fields[field].length));
+  return Array.from({ length: count }, (_, i) => Object.fromEntries(metricFields.map(field => [field, fields[field][i] || ""])));
+}
 
 function addPromptCall(seed = {}) {
   const card = document.createElement("fieldset");
@@ -160,7 +182,7 @@ function requirementList(data = formData()) {
   required.push("useCaseName", "modelOwner", "businessUnit", "implementationDate", "markets", "overview", "modelInputs", "generatedOutputs", "modelName", "modelVersion", "hosting", "agentic");
   if (values(data.markets).includes("Other")) required.push("otherMarket");
   if (route(data).needsAssessment) required.push("endUsers", "businessProcess", "quantDriver", "impactThreshold", "reliance", "explainable", "fineTuned", "multiCall", "downstream");
-  required.push("sampleSize", "metric1", "metric1Value", "metric1Rationale", "metric2", "metric2Value", "metric2Rationale", "promptCalls", "metric1Green", "metric1Amber", "metric1Red", "metric2Green", "metric2Amber", "metric2Red", "monitoringFrequency", "attestation", "businessOwnerName", "businessOwnerTitle");
+  required.push("sampleSize", "metrics", "promptCalls", "monitoringFrequency", "attestation", "businessOwnerName", "businessOwnerTitle");
   return required;
 }
 
@@ -169,7 +191,10 @@ function missingFields(data = formData()) {
   for (const name of requirementList(data)) {
     if (name === "attestation" && !["accurate", "eu", "controls", "risk", "scope"].every(value => values(data.attestation).includes(value))) missing.push(name);
     else if (name === "markets" && !values(data.markets).length) missing.push(name);
-    else if (name === "promptCalls") {
+    else if (name === "metrics") {
+      const metrics = metricsFromData(data);
+      if (!metrics.length || metrics.some(metric => metricFields.some(field => !String(metric[field]).trim()))) missing.push(name);
+    } else if (name === "promptCalls") {
       const count = document.querySelectorAll(".prompt-call").length;
       if (!count || promptFields.some(field => values(data[field]).length !== count || values(data[field]).some(value => !String(value).trim())) || (data.multiCall === "yes" && count < 3)) missing.push(name);
     } else if (!String(data[name] ?? "").trim()) missing.push(name);
@@ -182,6 +207,7 @@ function missingFields(data = formData()) {
 function markInvalid(missing) {
   form.querySelectorAll(".invalid").forEach(element => element.classList.remove("invalid")); form.querySelectorAll('[aria-invalid="true"]').forEach(element => element.removeAttribute("aria-invalid"));
   for (const name of missing) {
+    if (name === "metrics") document.querySelector("#metrics").classList.add("invalid");
     if (name === "promptCalls") document.querySelector("#promptCalls").classList.add("invalid");
     const fieldset = form.querySelector(`fieldset[data-required="${name}"], fieldset[data-required-all="${name}"]`); if (fieldset) fieldset.classList.add("invalid");
     form.querySelectorAll(`[name="${name}"]`).forEach(element => element.setAttribute("aria-invalid", "true"));
@@ -203,7 +229,7 @@ function updateNavigation() {
 }
 function review() {
   const data = formData(), routed = route(data), result = score(data), markets = values(data.markets).join(", ") || "—";
-  document.querySelector("#reviewSummary").innerHTML = [["Use case", data.useCaseName || "—"], ["Model", `${data.modelName || "—"} ${data.modelVersion || ""}`], ["Routing", routed.tier], ["Final impact", result.score == null ? result.tier : `${result.tier} · MIC ${result.score.toFixed(2)}`], ["Section 2", routed.needsAssessment ? "Included and completed" : "Omitted by VBA early exit"], ["Markets", markets], ["LLM calls", document.querySelectorAll(".prompt-call").length], ["Output", STATIC_MODE ? "Validated submission JSON" : "6 core files plus optional support"]].map(([key, value]) => `<div class="review-item"><span>${esc(key)}</span><strong>${esc(value)}</strong></div>`).join("");
+  document.querySelector("#reviewSummary").innerHTML = [["Use case", data.useCaseName || "—"], ["Model", `${data.modelName || "—"} ${data.modelVersion || ""}`], ["Routing", routed.tier], ["Final impact", result.score == null ? result.tier : `${result.tier} · MIC ${result.score.toFixed(2)}`], ["Section 2", routed.needsAssessment ? "Included and completed" : "Omitted by VBA early exit"], ["Markets", markets], ["Metrics", document.querySelectorAll(".metric-card").length], ["LLM calls", document.querySelectorAll(".prompt-call").length], ["Output", "6 core files plus optional support"]].map(([key, value]) => `<div class="review-item"><span>${esc(key)}</span><strong>${esc(value)}</strong></div>`).join("");
   showMissingSummary(missingFields(data));
 }
 function render(scroll = true) {
@@ -216,8 +242,12 @@ function restoreDraft() {
   const raw = localStorage.getItem("mrmg-first-line-draft"); if (!raw) return;
   try {
     const data = JSON.parse(raw), count = Math.max(1, values(data.promptCallName).length);
+    const legacyMetrics = data.metricName ? null : [{ metricName: data.metric1, metricValue: data.metric1Value, metricRationale: data.metric1Rationale, metricGreen: data.metric1Green, metricAmber: data.metric1Amber, metricRed: data.metric1Red }, ...(data.metric2 ? [{ metricName: data.metric2, metricValue: data.metric2Value, metricRationale: data.metric2Rationale, metricGreen: data.metric2Green, metricAmber: data.metric2Amber, metricRed: data.metric2Red }] : [])];
+    const metricCount = Math.max(1, legacyMetrics ? legacyMetrics.length : values(data.metricName).length);
     while (document.querySelectorAll(".prompt-call").length < count) addPromptCall();
-    for (const [name, value] of Object.entries(data)) if (name !== "quantDriver") setNamed(name, value);
+    while (document.querySelectorAll(".metric-card").length < metricCount) addMetric();
+    if (legacyMetrics) legacyMetrics.forEach((metric, i) => metricFields.forEach(field => { const element = form.querySelectorAll(`[name="${field}"]`)[i]; if (element) element.value = metric[field] || ""; }));
+    for (const [name, value] of Object.entries(data)) if (name !== "quantDriver" && !name.startsWith("metric1") && !name.startsWith("metric2")) setNamed(name, value);
     updateDriverRules(false); setNamed("quantDriver", data.quantDriver || ""); updateDriverRules(true);
   } catch (_) { localStorage.removeItem("mrmg-first-line-draft"); }
 }
@@ -231,31 +261,32 @@ async function payloadWithFiles() {
   data.supportingFiles = await Promise.all(files.map(file => new Promise((resolve, reject) => { const reader = new FileReader(); reader.onerror = () => reject(reader.error); reader.onload = () => resolve({ name: file.name, data: String(reader.result).split(",")[1] }); reader.readAsDataURL(file); })));
   return data;
 }
-function downloadJson(data) {
-  const safe = { ...data, supportingFileNames: [...document.querySelector("#supportingFiles").files].map(file => file.name) };
-  const url = URL.createObjectURL(new Blob([JSON.stringify(safe, null, 2)], { type: "application/json" })); const link = document.createElement("a"); link.href = url; link.download = `${String(data.useCaseName).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "submission"}.json`; link.click(); URL.revokeObjectURL(url);
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = filename; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-nav.innerHTML = steps.map(step => `<button type="button" class="nav-step" data-nav="${step.id}"><i>01</i><span>${esc(step.label)}</span></button>`).join(""); addPromptCall();
+nav.innerHTML = steps.map(step => `<button type="button" class="nav-step" data-nav="${step.id}"><i>01</i><span>${esc(step.label)}</span></button>`).join(""); addMetric(); addPromptCall();
 nav.addEventListener("click", event => { const button = event.target.closest("[data-nav]"); if (!button) return; const target = activeSteps().findIndex(step => step.id === button.dataset.nav); if (target >= 0) { index = target; render(); } });
 form.addEventListener("change", event => { if (["solutionType", "markets"].includes(event.target.name)) syncApplicability(); if (event.target.name === "businessProcess") updateDriverRules(false); if (event.target.name === "quantDriver") updateDriverRules(true); renderDecision(); saveDraft(); render(false); });
-form.addEventListener("input", event => { event.target.removeAttribute("aria-invalid"); event.target.closest("fieldset")?.classList.remove("invalid"); document.querySelector("#promptCalls").classList.remove("invalid"); saveDraft(); updateNavigation(); if (activeSteps()[index]?.id === "review") review(); });
+form.addEventListener("input", event => { event.target.removeAttribute("aria-invalid"); event.target.closest("fieldset")?.classList.remove("invalid"); document.querySelector("#metrics").classList.remove("invalid"); document.querySelector("#promptCalls").classList.remove("invalid"); saveDraft(); updateNavigation(); if (activeSteps()[index]?.id === "review") review(); });
+document.querySelector("#addMetric").addEventListener("click", () => { addMetric(); saveDraft(); updateNavigation(); });
+document.querySelector("#metrics").addEventListener("click", event => { const button = event.target.closest(".remove-metric"); if (!button) return; button.closest(".metric-card").remove(); renumberMetrics(); saveDraft(); updateNavigation(); });
 document.querySelector("#addPromptCall").addEventListener("click", () => { addPromptCall(); saveDraft(); updateNavigation(); });
 document.querySelector("#promptCalls").addEventListener("click", event => { const button = event.target.closest(".remove-call"); if (!button) return; button.closest(".prompt-call").remove(); renumberCalls(); saveDraft(); updateNavigation(); });
 nextBtn.addEventListener("click", () => { const current = activeSteps()[index], left = missingFields().filter(name => stepForField[name] === current.id).length; if (left) validationMessage.textContent = `${left} required item${left === 1 ? "" : "s"} remain here; you can return later.`; index = Math.min(index + 1, activeSteps().length - 1); render(); });
 backBtn.addEventListener("click", () => { index = Math.max(0, index - 1); render(); });
 document.querySelectorAll("[data-scenario]").forEach(button => button.addEventListener("click", () => applyScenario(button.dataset.scenario)));
 missingSummary.addEventListener("click", event => { const button = event.target.closest("[data-jump]"); if (!button) return; const target = activeSteps().findIndex(step => step.id === button.dataset.jump); if (target >= 0) { index = target; render(); } });
-document.querySelector("#resetBtn").addEventListener("click", () => { if (!confirm("Reset the locally saved draft?")) return; form.reset(); document.querySelector("#promptCalls").innerHTML = ""; addPromptCall(); localStorage.removeItem("mrmg-first-line-draft"); index = 0; updateDriverRules(false); syncApplicability(); renderDecision(); render(); });
+document.querySelector("#resetBtn").addEventListener("click", () => { if (!confirm("Reset the locally saved draft?")) return; form.reset(); document.querySelector("#metrics").innerHTML = ""; document.querySelector("#promptCalls").innerHTML = ""; addMetric(); addPromptCall(); localStorage.removeItem("mrmg-first-line-draft"); index = 0; updateDriverRules(false); syncApplicability(); renderDecision(); render(); });
 document.querySelector("#generateBtn").addEventListener("click", async () => {
   const button = document.querySelector("#generateBtn"), status = document.querySelector("#generationStatus"), missing = missingFields(); markInvalid(missing); showMissingSummary(missing);
   if (missing.length) { status.textContent = "Generation paused until all applicable required fields are complete."; missingSummary.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
   button.disabled = true;
   try {
-    if (STATIC_MODE) { downloadJson(formData()); status.textContent = "Validated submission JSON exported. Run the local service to create the Word/Excel ZIP."; }
+    if (STATIC_MODE) { status.textContent = "Creating the Word, Excel, JSON, and ZIP package on this device…"; const { generateBrowserPackage } = await import("./browser-generator.js"); const result = await generateBrowserPackage({ ...formData(), impactTier: score().tier, assessmentScore: score().score, assessmentComponents: score().components, section2Included: route().needsAssessment }, [...document.querySelector("#supportingFiles").files]); downloadBlob(result.blob, result.filename); status.textContent = result.summary; }
     else { status.textContent = "Generating and validating the Word and Excel package…"; const response = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(await payloadWithFiles()) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || "Generation failed"); status.innerHTML = `Package generated successfully. <a href="${esc(result.download)}">Download ${esc(result.filename)}</a><br>${esc(result.summary)}`; }
   } catch (error) { status.textContent = `Could not generate: ${error.message}`; } finally { button.disabled = false; }
 });
 
-if (STATIC_MODE) { const button = document.querySelector("#generateBtn"); button.querySelector("span").textContent = "Export validated submission JSON"; button.querySelector("small").textContent = "Browser-only GitHub Pages mode"; }
+if (STATIC_MODE) { const button = document.querySelector("#generateBtn"); button.querySelector("span").textContent = "Generate submission package"; button.querySelector("small").textContent = "Word + Excel + JSON + ZIP · stays on this device"; }
 restoreDraft(); updateDriverRules(true); syncApplicability(); renderDecision(); render(false);
