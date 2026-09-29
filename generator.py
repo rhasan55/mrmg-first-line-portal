@@ -88,8 +88,10 @@ BUSINESS_RULES = {
 def routing(data: dict) -> dict:
     if data.get("solutionType") == "general":
         return {"tier": "Low", "needs_assessment": False, "reason": "General-purpose solutions route directly to Low impact and Section 1."}
-    if data.get("regulatory") == "no" and data.get("purpose") in {"customerExperience", "efficiency"}:
-        return {"tier": "Low", "needs_assessment": False, "reason": "This combination routes directly to Low impact and does not require Section 2."}
+    if data.get("regulatory") == "no" and data.get("purpose") == "customerExperience":
+        return {"tier": "Low", "needs_assessment": False, "reason": "A customized solution with no regulatory-reporting use that enhances customer experience without direct impact on AXP's core business routes to Low impact and does not require Section 2."}
+    if data.get("regulatory") == "no" and data.get("purpose") == "efficiency":
+        return {"tier": "Low", "needs_assessment": False, "reason": "A customized solution with no regulatory-reporting use that creates colleague process efficiencies without direct impact on AXP's core business routes to Low impact and does not require Section 2."}
     return {"tier": "Assessment required", "needs_assessment": True, "reason": "The selected use requires the Section 2 impact assessment."}
 
 
@@ -461,18 +463,18 @@ def add_submission_content(doc, data, result):
     p = doc.add_paragraph(); r = p.add_run("Instructions: "); r.bold = True; r.italic = True
     p.add_run("For each question, choose the single best option. If unsure, choose the higher-impact option.").italic = True
 
-    prompt(doc, 1, "Which of the following types of GenAI solution fits this use case best? (Select one)")
-    option_line(doc, data.get("solutionType") == "general", "General-purpose AI capability or tool, e.g., ChatGPT, Microsoft Office Copilot, coding accelerators, or another capability without a specific business purpose.")
-    option_line(doc, data.get("solutionType") == "custom", "Customized solution for a specific business purpose or use, e.g., task generation, control recommender, help-desk assistant, etc.")
+    prompt(doc, 1, "Which of the following types of GenAI solution fits this use-case best? (Select one)")
+    option_line(doc, data.get("solutionType") == "general", "General purpose AI capability or tool, e.g., ChatGPT, Microsoft Office Copilot, coding accelerators, etc. without any specific business purpose or use.")
+    option_line(doc, data.get("solutionType") == "custom", "Customized solution for a specific business purpose or use, e.g., deck generation, control recommender, tech care support, etc.")
     if data.get("solutionType") != "general":
         prompt(doc, 2, "Is the model output used as an input to any regulatory reporting (e.g., CCAR, CECL, SAR filings, stress testing, capital or liquidity reporting, etc.)?")
         option_line(doc, data.get("regulatory") == "yes", "Yes"); option_line(doc, data.get("regulatory") == "no", "No")
-        prompt(doc, 3, "What is the purpose and business usage of the model?")
+        prompt(doc, 3, "What is the purpose and business usage of this model?")
         purpose_options = [
-            ("core", "Model decision has direct impact on AXP's core business, e.g., payment and lending decisions."),
-            ("peopleCompliance", "Model is used in applications that affect employment, compliance, legal, or regulatory decisions."),
-            ("customerExperience", "Model enhances customer experience, communications, or service interactions."),
-            ("efficiency", "Model creates productivity or efficiency within AXP's core business, e.g., code suggestions or colleague support."),
+            ("core", "Model decision has direct impact on AXP's core business of payments & lending – for e.g. customer credit risk score, card response model, prospect targeting models, automation of credit and collections process etc."),
+            ("peopleCompliance", "Model is used in applications that impact colleagues' compensation or employment decisions, or are used for compliance/regulatory assessments or checks – for e.g. VIBES score, Marketing Content Compliance Review, GCS Sales Misconduct Self-Testing etc."),
+            ("customerExperience", "Models used for enhancing customer experience with no direct impact on AXP's core business – for e.g. customer expense management spend classifier, restaurant recommender, etc."),
+            ("efficiency", "Models used to create process efficiencies for colleagues with no direct impact on AXP's core business – for e.g. email or message drafting, document summarizer / writer, code suggestions, etc."),
         ]
         for key, text in purpose_options: option_line(doc, data.get("purpose") == key, text, italic=True)
 
@@ -541,10 +543,10 @@ def add_submission_content(doc, data, result):
 
     if routed["needs_assessment"]:
         doc.add_page_break(); heading(doc, "Section 2: Model Risk Tier Assessment")
-        p = doc.add_paragraph(); p.add_run("Who are the intended end users of this use case? (Select one)").bold = True
-        option_line(doc, data.get("endUsers") == "none", "No direct end users / foundational capability")
-        option_line(doc, data.get("endUsers") == "customer", "Customer-facing or applied to customer-impacting decisions")
-        option_line(doc, data.get("endUsers") == "internal", "Internal colleagues")
+        p = doc.add_paragraph(); p.add_run("Who are the intended end-users of this use-case? (Select one)").bold = True
+        option_line(doc, data.get("endUsers") == "none", "No end-users: Model serves foundational capabilities or informs internal decisions (e.g., Responsible AI checks, capital adequacy, etc.).")
+        option_line(doc, data.get("endUsers") == "customer", "Customer-facing with direct use by Amex customers or directly applied to customer impacting decisions.")
+        option_line(doc, data.get("endUsers") == "internal", "Internal facing for Amex colleagues; (e.g., communicate travel recommendations to customers, document summarization, etc.).")
         heading(doc, "A. Business Impact (Quantitative)", level=2)
         impact_rows = []
         for process, drivers in BUSINESS_RULES.items():
@@ -556,15 +558,18 @@ def add_submission_content(doc, data, result):
         p = doc.add_paragraph("All quantitative driver metrics—including action volume, gross contribution margin, pre-tax income, and related measures—are measured on an annual basis."); p.runs[0].italic = True; p.runs[0].font.size = Pt(9)
         p = doc.add_paragraph("Adverse Action Volume is the number of customers adversely impacted. Alert Volume is measured by entities screened for screening models and by alerts or cases evaluated for true-match/false-positive models. If no traditional metric is available, estimate and report pre-tax income impact."); p.runs[0].italic = True; p.runs[0].font.size = Pt(9)
         heading(doc, "B. Business Importance (Qualitative)", level=2)
-        direct_p = option_line(doc, data.get("reliance") == "direct", "Direct reliance / automated decision"); add_footnote_marker(direct_p, 3)
-        option_line(doc, data.get("reliance") == "human", "Human review or fallback")
-        option_line(doc, data.get("reliance") == "multiple", "Multiple reviews / recommendation only")
+        p = doc.add_paragraph(); p.add_run("Reliance on model output – What is the level of reliance on the model's output in your business workflow?").bold = True
+        direct_p = option_line(doc, data.get("reliance") == "direct", "Direct use: The model's output is used directly and automatically to make decisions or take actions"); add_footnote_marker(direct_p, 3)
+        option_line(doc, data.get("reliance") == "human", "Human review: The model's output is used after an SME review OR customer/colleague has a fallback option")
+        option_line(doc, data.get("reliance") == "multiple", "Multiple reviews: The model's output is used after multiple SME/process reviews OR model only makes recommendations / summaries which can be bypassed or overridden by customer / colleague")
         heading(doc, "C. Model Complexity", level=2)
-        p = doc.add_paragraph(); p.paragraph_format.keep_with_next = True; p.add_run("C1 – Explainability feasible?").bold = True
+        p = doc.add_paragraph(); p.paragraph_format.keep_with_next = True; p.add_run("C1. Explainability – Are feasible techniques available to provide an explanation for the model's output in this use case?").bold = True
         first = option_line(doc, data.get("explainable") == "yes", "Yes"); first.paragraph_format.keep_with_next = True; option_line(doc, data.get("explainable") == "no", "No")
-        p = doc.add_paragraph(); p.paragraph_format.keep_with_next = True; p.add_run("C2 – Foundational model fine-tuned?").bold = True
+        p = doc.add_paragraph("Examples: Interpretability techniques exist that explain the model output in context of the input provided to the model, for example, SHAP, LIME, etc. Answer “Yes” only if interpretability techniques exist and have been assessed during model development."); p.runs[0].italic = True; p.runs[0].font.size = Pt(9)
+        p = doc.add_paragraph(); p.paragraph_format.keep_with_next = True; p.add_run("C2. Specification – Is the foundational model fine-tuned for this use case?").bold = True
         first = option_line(doc, data.get("fineTuned") == "yes", "Yes"); first.paragraph_format.keep_with_next = True; option_line(doc, data.get("fineTuned") == "no", "No")
-        p = doc.add_paragraph(); p.paragraph_format.keep_with_next = True; p.add_run("C3 – More than two sequential LLM calls?").bold = True
+        p = doc.add_paragraph("Examples of fine-tuning include supervised fine-tuning, LoRA/adapters, instruction tuning, or domain-specialized weights. Few-shot prompting alone = “No”."); p.runs[0].italic = True; p.runs[0].font.size = Pt(9)
+        p = doc.add_paragraph(); p.paragraph_format.keep_with_next = True; p.add_run("C3. Number of LLM calls – In a typical user flow, are there more than 2 sequential LLM calls to complete a task?").bold = True
         first = option_line(doc, data.get("multiCall") == "yes", "Yes"); first.paragraph_format.keep_with_next = True; option_line(doc, data.get("multiCall") == "no", "No")
         heading(doc, "D. Interdependency", level=2)
         option_line(doc, data.get("downstream") == "none", "0–1 downstream dependencies")

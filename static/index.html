@@ -30,19 +30,18 @@
 
           <section class="step active" data-step="routing">
             <div class="intro"><p class="overline">Impact triage</p><h3>Start with how the model is used.</h3><p>Choose the single best answer. The decision card applies the approved first-line routing rules.</p></div>
-            <fieldset data-required="solutionType"><legend>1. Which GenAI solution best fits this use case? <span class="req">*</span></legend>
-              <label class="choice"><input type="radio" name="solutionType" value="general"><span><strong>General-purpose capability</strong><small>ChatGPT, Office Copilot, coding accelerators, or a tool without a specific business purpose.</small></span></label>
-              <label class="choice"><input type="radio" name="solutionType" value="custom"><span><strong>Customized business solution</strong><small>A specific use such as task generation, control recommendations, or service support.</small></span></label>
+            <fieldset data-required="solutionType"><legend>1. Which of the following types of GenAI solution fits this use-case best? (Select one) <span class="req">*</span></legend>
+              <label class="choice"><input type="radio" name="solutionType" value="general"><span><strong>General purpose AI capability or tool</strong><small>e.g., ChatGPT, Microsoft Office Copilot, coding accelerators, etc. without any specific business purpose or use.</small></span></label>
+              <label class="choice"><input type="radio" name="solutionType" value="custom"><span><strong>Customized solution for a specific business purpose or use</strong><small>e.g., deck generation, control recommender, tech care support, etc.</small></span></label>
             </fieldset>
-            <fieldset data-required="regulatory"><legend>2. Is output used as input to regulatory reporting? <span class="req">*</span></legend>
-              <p class="hint">Examples: CCAR, CECL, SAR filings, stress testing, capital, or liquidity reporting.</p>
+            <fieldset data-required="regulatory"><legend>2. Is the model output used as an input to any regulatory reporting (e.g., CCAR, CECL, SAR filings, stress testing, capital or liquidity reporting, etc.)? <span class="req">*</span></legend>
               <div class="choice-row"><label class="choice compact"><input type="radio" name="regulatory" value="yes"><span><strong>Yes</strong></span></label><label class="choice compact"><input type="radio" name="regulatory" value="no"><span><strong>No</strong></span></label></div>
             </fieldset>
-            <fieldset data-required="purpose"><legend>3. What is the purpose and business usage? <span class="req">*</span></legend>
-              <label class="choice"><input type="radio" name="purpose" value="core"><span><strong>Core payments or lending decision</strong><small>Credit risk, targeting, response, or collections decisions.</small></span></label>
-              <label class="choice"><input type="radio" name="purpose" value="peopleCompliance"><span><strong>People, compliance, legal, or regulatory assessment</strong><small>Compensation, employment, misconduct, compliance checks, or similar assessments.</small></span></label>
-              <label class="choice"><input type="radio" name="purpose" value="customerExperience"><span><strong>Customer experience enhancement</strong><small>No direct effect on access to credit or ability to make payments.</small></span></label>
-              <label class="choice"><input type="radio" name="purpose" value="efficiency"><span><strong>Colleague process efficiency</strong><small>Drafting, summarization, document creation, or code suggestions.</small></span></label>
+            <fieldset data-required="purpose"><legend>3. What is the purpose and business usage of this model? <span class="req">*</span></legend>
+              <label class="choice"><input type="radio" name="purpose" value="core"><span><strong>Model decision has direct impact on AXP's core business of payments &amp; lending</strong><small>e.g., customer credit risk score, card response model, prospect targeting models, automation of credit and collections process, etc.</small></span></label>
+              <label class="choice"><input type="radio" name="purpose" value="peopleCompliance"><span><strong>Model is used in applications that impact colleagues' compensation or employment decisions, or are used for compliance/regulatory assessments or checks</strong><small>e.g., VIBES score, Marketing Content Compliance Review, GCS Sales Misconduct Self-Testing, etc.</small></span></label>
+              <label class="choice"><input type="radio" name="purpose" value="customerExperience"><span><strong>Models used for enhancing customer experience with no direct impact on AXP's core business</strong><small>e.g., customer expense management spend classifier, restaurant recommender, etc.</small></span></label>
+              <label class="choice"><input type="radio" name="purpose" value="efficiency"><span><strong>Models used to create process efficiencies for colleagues with no direct impact on AXP's core business</strong><small>e.g., email or message drafting, document summarizer / writer, code suggestions, etc.</small></span></label>
             </fieldset>
             <div class="decision-card" id="routingResult" hidden></div>
           </section>
@@ -71,24 +70,24 @@
           </section>
 
           <section class="step" data-step="assessment">
-            <div class="intro"><p class="overline">Section 2 · Impact assessment</p><h3>Assess impact, importance, complexity, and interdependency.</h3><p>This section appears only when a scored assessment is required. The calculator applies the approved MIC formula and exact band boundaries.</p></div>
+            <div class="intro"><p class="overline">Section 2 · Model Risk Tier Assessment</p><h3>Assess impact, importance, complexity, and interdependency.</h3><p>This section appears only when the questionnaire requires the additional assessment. The detailed calculation stays in the generated submission record.</p></div>
             <div class="scenario-lab" aria-labelledby="scenarioTitle">
-              <div><p class="overline" id="scenarioTitle">Scenario lab</p><strong>Try a complete score profile</strong><p>Presets fill only routing and Section 2. You can change any answer afterward.</p></div>
+              <div><p class="overline" id="scenarioTitle">Scenario lab</p><strong>Try a complete impact profile</strong><p>Presets fill only routing and Section 2. You can change any answer afterward.</p></div>
               <div class="scenario-buttons"><button type="button" data-scenario="low">Low</button><button type="button" data-scenario="medium">Medium</button><button type="button" data-scenario="high">High</button><button type="button" data-scenario="critical">Critical</button></div>
             </div>
-            <fieldset data-required="endUsers"><legend>Who are the intended end users? <span class="req">*</span></legend><label class="choice"><input type="radio" name="endUsers" value="none"><span><strong>No direct end users / foundational</strong><small>Foundational capability or internal decision support.</small></span></label><label class="choice"><input type="radio" name="endUsers" value="customer"><span><strong>Customer-facing</strong><small>Direct customer use or directly applied to customer-impacting decisions.</small></span></label><label class="choice"><input type="radio" name="endUsers" value="internal"><span><strong>Internal colleagues</strong><small>Used by colleagues in an internal workflow.</small></span></label></fieldset>
+            <fieldset data-required="endUsers"><legend>Who are the intended end-users of this use-case? (Select one) <span class="req">*</span></legend><label class="choice"><input type="radio" name="endUsers" value="none"><span><strong>No end-users</strong><small>Model serves foundational capabilities or informs internal decisions (e.g., Responsible AI checks, capital adequacy, etc.).</small></span></label><label class="choice"><input type="radio" name="endUsers" value="customer"><span><strong>Customer-facing</strong><small>With direct use by Amex customers or directly applied to customer impacting decisions.</small></span></label><label class="choice"><input type="radio" name="endUsers" value="internal"><span><strong>Internal facing for Amex colleagues</strong><small>e.g., communicate travel recommendations to customers, document summarization, etc.</small></span></label></fieldset>
             <div class="grid two"><label>Business process <span class="req">*</span><select name="businessProcess" required><option value="">Select</option><option>Credit and Fraud Risk</option><option>Marketing</option><option>Technology and Servicing</option><option>Finance and Treasury</option><option>Compliance and Financial Crimes</option><option>Other</option></select></label><label>Quantitative driver <span class="req">*</span><select name="quantDriver" required><option value="">Choose a business process first</option></select></label></div>
-            <fieldset data-required="impactThreshold"><legend>A · Business Impact — annual threshold <span class="req">*</span></legend><div class="choice-row triple"><label class="choice compact"><input type="radio" name="impactThreshold" value="small"><span><strong>Small</strong><small id="smallBand"><code>qn = 1</code></small></span></label><label class="choice compact"><input type="radio" name="impactThreshold" value="medium"><span><strong>Medium</strong><small id="mediumBand"><code>qn = 2</code></small></span></label><label class="choice compact"><input type="radio" name="impactThreshold" value="large"><span><strong>Large</strong><small id="largeBand"><code>qn = 3</code></small></span></label></div><p class="hint">The displayed ranges come from the selected process and quantitative-driver rule. Regulatory-reporting input sets <code>qn = 3</code>.</p></fieldset>
-            <fieldset data-required="reliance"><legend>B · Business Importance — how is model output used? <span class="req">*</span></legend><label class="choice"><input type="radio" name="reliance" value="direct"><span><strong>Direct use</strong><small>Automatically drives a decision or action.</small></span></label><label class="choice"><input type="radio" name="reliance" value="human"><span><strong>Human review or fallback</strong><small>An SME reviews the output, or a customer/colleague has a fallback.</small></span></label><label class="choice"><input type="radio" name="reliance" value="multiple"><span><strong>Multiple reviews / recommendation only</strong><small>Multiple reviews occur or the result can be bypassed.</small></span></label></fieldset>
+            <fieldset data-required="impactThreshold"><legend>A · Business Impact (Quantitative) — annual threshold <span class="req">*</span></legend><p class="hint">Financial impact — What is the business impact of the process in which the model is used? Choose one business process, one corresponding quantitative driver, and one appropriate threshold.</p><div class="choice-row triple"><label class="choice compact"><input type="radio" name="impactThreshold" value="small"><span><strong>Small</strong><small id="smallBand">Select a business process and quantitative driver</small></span></label><label class="choice compact"><input type="radio" name="impactThreshold" value="medium"><span><strong>Medium</strong><small id="mediumBand">Select a business process and quantitative driver</small></span></label><label class="choice compact"><input type="radio" name="impactThreshold" value="large"><span><strong>Large</strong><small id="largeBand">Select a business process and quantitative driver</small></span></label></div><p class="hint">All quantitative driver metrics—Action Volume, GCM, PTI, etc.—are measured on an annual basis. Regulatory-reporting use applies the highest business-impact band.</p></fieldset>
+            <fieldset data-required="reliance"><legend>B · Business Importance (Qualitative) — What is the level of reliance on the model's output in your business workflow? <span class="req">*</span></legend><label class="choice"><input type="radio" name="reliance" value="direct"><span><strong>Direct use</strong><small>The model's output is used directly and automatically to make decisions or take actions.</small></span></label><label class="choice"><input type="radio" name="reliance" value="human"><span><strong>Human review</strong><small>The model's output is used after an SME review or the customer/colleague has a fallback option.</small></span></label><label class="choice"><input type="radio" name="reliance" value="multiple"><span><strong>Multiple reviews</strong><small>The model's output is used after multiple SME/process reviews, or the model only makes recommendations/summaries which can be bypassed or overridden by the customer/colleague.</small></span></label></fieldset>
             <div class="grid two complexity-grid">
-              <fieldset data-required="explainable"><legend>C1 · Feasible explainability techniques? <span class="req">*</span></legend><label class="tick"><input type="radio" name="explainable" value="yes"> Yes</label><label class="tick"><input type="radio" name="explainable" value="no"> No</label></fieldset>
-              <fieldset data-required="fineTuned"><legend>C2 · Foundational model fine-tuned? <span class="req">*</span></legend><label class="tick"><input type="radio" name="fineTuned" value="yes"> Yes</label><label class="tick"><input type="radio" name="fineTuned" value="no"> No</label></fieldset>
-              <fieldset data-required="multiCall"><legend>C3 · More than 2 sequential LLM calls? <span class="req">*</span></legend><label class="tick"><input type="radio" name="multiCall" value="yes"> Yes</label><label class="tick"><input type="radio" name="multiCall" value="no"> No</label></fieldset>
-              <fieldset data-required="downstream"><legend>D · Downstream interdependency <span class="req">*</span></legend><label class="tick"><input type="radio" name="downstream" value="none"> 0–1</label><label class="tick"><input type="radio" name="downstream" value="some"> 2–5</label><label class="tick"><input type="radio" name="downstream" value="many"> 6+</label></fieldset>
+              <fieldset data-required="explainable"><legend>C1 · Explainability — Are feasible techniques available to provide an explanation for the model's output in this use case? <span class="req">*</span></legend><p class="hint">Examples: Interpretability techniques exist that explain the model output in context of the input provided to the model, for example, SHAP, LIME, etc. Answer “Yes” only if interpretability techniques exist and have been assessed during model development.</p><label class="tick"><input type="radio" name="explainable" value="yes"> Yes</label><label class="tick"><input type="radio" name="explainable" value="no"> No</label></fieldset>
+              <fieldset data-required="fineTuned"><legend>C2 · Specification — Is the foundational model fine-tuned for this use case? <span class="req">*</span></legend><p class="hint">Examples of fine-tuning include supervised fine-tuning, LoRA/adapters, instruction tuning, or domain-specialized weights. Few-shot prompting alone = “No”.</p><label class="tick"><input type="radio" name="fineTuned" value="yes"> Yes</label><label class="tick"><input type="radio" name="fineTuned" value="no"> No</label></fieldset>
+              <fieldset data-required="multiCall"><legend>C3 · Number of LLM calls — In a typical user flow, are there more than 2 sequential LLM calls to complete a task? <span class="req">*</span></legend><label class="tick"><input type="radio" name="multiCall" value="yes"> Yes</label><label class="tick"><input type="radio" name="multiCall" value="no"> No</label></fieldset>
+              <fieldset data-required="downstream"><legend>D · Interdependency — How many downstream dependencies use this model's output? <span class="req">*</span></legend><label class="tick"><input type="radio" name="downstream" value="none"> 0–1</label><label class="tick"><input type="radio" name="downstream" value="some"> 2–5</label><label class="tick"><input type="radio" name="downstream" value="many"> 6+</label></fieldset>
             </div>
             <div class="decision-card" id="assessmentResult"></div>
             <div class="score-breakdown" id="scoreBreakdown" aria-live="polite"></div>
-            <div class="bands"><span><i class="low"></i>Low &lt; 1.2</span><span><i class="medium"></i>Medium 1.2–&lt;1.8</span><span><i class="high"></i>High 1.8–&lt;2.2</span><span><i class="critical"></i>Critical ≥ 2.2</span></div>
+            <div class="bands" aria-label="Impact outcomes"><span><i class="low"></i>Low Impact</span><span><i class="medium"></i>Medium Impact</span><span><i class="high"></i>High Impact</span><span><i class="critical"></i>Critical Impact</span></div>
           </section>
 
           <section class="step" data-step="evidence">
@@ -132,7 +131,7 @@
 
   <button class="playground-tab" id="playgroundTrigger" type="button" aria-controls="scorePlayground" aria-expanded="false">
     <span class="playground-tab-icon" aria-hidden="true">↗</span>
-    <span><strong>Score Playground</strong><small>Explore every pathway</small></span>
+    <span><strong>Impact Playground</strong><small>Explore every pathway</small></span>
   </button>
 
   <button class="second-line-tab" id="secondLineTrigger" type="button" aria-controls="secondLinePortal" aria-expanded="false">
@@ -145,17 +144,17 @@
       <header class="playground-head">
         <div>
           <p class="overline">What-if lab · does not change your draft</p>
-          <h2 id="playgroundTitle">See what moves a model’s tier.</h2>
-          <p>Explore both Low-impact early exits and every scored MIC outcome. Choose a preset or change one driver at a time.</p>
+          <h2 id="playgroundTitle">See what changes a model’s impact outcome.</h2>
+          <p>Explore Low Impact early exits and every assessed outcome. Choose a pathway or change one response at a time.</p>
         </div>
-        <button class="playground-close" id="playgroundClose" type="button" aria-label="Close Score Playground">×</button>
+        <button class="playground-close" id="playgroundClose" type="button" aria-label="Close Impact Playground">×</button>
       </header>
 
       <div class="playground-presets" aria-label="Example pathways">
         <span>Jump to</span>
         <button type="button" data-playground-preset="general">General-purpose Low</button>
         <button type="button" data-playground-preset="customLow">Customized Low</button>
-        <button type="button" data-playground-preset="scoredLow">Scored Low</button>
+        <button type="button" data-playground-preset="scoredLow">Assessed Low</button>
         <button type="button" data-playground-preset="medium">Medium</button>
         <button type="button" data-playground-preset="high">High</button>
         <button type="button" data-playground-preset="critical">Critical</button>
@@ -163,32 +162,32 @@
 
       <div class="sim-mobile-peek" aria-hidden="true">
         <span>Live result</span>
-        <strong><b id="simMobileTier">High</b><i id="simMobileScore">2.10</i></strong>
+        <strong><b id="simMobileTier">High</b><i id="simMobileScore">Section 2 required</i></strong>
       </div>
 
       <div class="playground-grid">
         <form class="playground-controls" id="playgroundForm">
           <section class="sim-section">
             <div class="sim-section-title"><span>01</span><strong>Routing gate</strong></div>
-            <label>Solution type<select name="simSolutionType"><option value="general">General-purpose capability</option><option value="custom" selected>Customized business solution</option></select></label>
+            <label>Solution type<select name="simSolutionType"><option value="general">General purpose capability</option><option value="custom" selected>Customized business solution</option></select></label>
             <div class="sim-route-dependent">
               <label>Regulatory-reporting input<select name="simRegulatory"><option value="no" selected>No</option><option value="yes">Yes</option></select></label>
-              <label>Purpose and business usage<select name="simPurpose"><option value="core" selected>Core payments or lending decision</option><option value="peopleCompliance">People, compliance, legal, or regulatory</option><option value="customerExperience">Customer experience enhancement</option><option value="efficiency">Colleague process efficiency</option></select></label>
+              <label>Purpose and business usage<select name="simPurpose"><option value="core" selected>Direct impact on core payments or lending</option><option value="peopleCompliance">Colleague, compensation, compliance, or regulatory decisions</option><option value="customerExperience">Customer experience with no direct core-business impact</option><option value="efficiency">Colleague efficiency with no direct core-business impact</option></select></label>
             </div>
           </section>
 
           <section class="sim-section" id="simAssessmentControls">
-            <div class="sim-section-title"><span>02</span><strong>Scored assessment</strong></div>
+            <div class="sim-section-title"><span>02</span><strong>Model Risk Tier Assessment</strong></div>
             <label>Intended end users <span class="sim-not-scored">documented, not scored</span><select name="simEndUsers"><option value="none">Foundational / no direct end users</option><option value="internal">Internal colleagues</option><option value="customer" selected>Customer-facing</option></select></label>
-            <label>Business impact band · qn <span class="sim-weight">40%</span><select name="simImpactThreshold"><option value="small">Small · qn 1</option><option value="medium" selected>Medium · qn 2</option><option value="large">Large · qn 3</option></select></label>
-            <p class="sim-rule-note" id="simRegulatoryNote" hidden>Regulatory-reporting use fixes qn at 3, regardless of the selected impact band.</p>
-            <label>Business importance (reliance + purpose) · ql <span class="sim-weight">40%</span><select name="simReliance"><option value="multiple">Multiple reviews / recommendation only</option><option value="human">Human review or fallback</option><option value="direct" selected>Direct reliance / automated decision</option></select></label>
+            <label>Business impact band<select name="simImpactThreshold"><option value="small">Small annual impact</option><option value="medium" selected>Medium annual impact</option><option value="large">Large annual impact</option></select></label>
+            <p class="sim-rule-note" id="simRegulatoryNote" hidden>Regulatory-reporting use applies the highest business-impact band, regardless of the selected annual impact band.</p>
+            <label>Business importance — reliance on model output<select name="simReliance"><option value="multiple">Multiple reviews / recommendation only</option><option value="human">Human review or fallback</option><option value="direct" selected>Direct reliance / automated decision</option></select></label>
             <div class="sim-toggle-grid" aria-label="Complexity flags">
-              <label><input type="checkbox" name="simExplainabilityRisk"><span><strong>Explainability not feasible</strong><small>adds 1 to cx</small></span></label>
-              <label><input type="checkbox" name="simFineTuned"><span><strong>Foundation model fine-tuned</strong><small>adds 1 to cx</small></span></label>
-              <label><input type="checkbox" name="simMultiCall"><span><strong>More than 2 sequential calls</strong><small>adds 1 to cx</small></span></label>
+              <label><input type="checkbox" name="simExplainabilityRisk"><span><strong>Explainability not feasible</strong><small>Model-complexity consideration</small></span></label>
+              <label><input type="checkbox" name="simFineTuned"><span><strong>Foundation model fine-tuned</strong><small>Model-complexity consideration</small></span></label>
+              <label><input type="checkbox" name="simMultiCall"><span><strong>More than 2 sequential calls</strong><small>Model-complexity consideration</small></span></label>
             </div>
-            <label>Downstream dependencies · dd <span class="sim-weight">10%</span><select name="simDownstream"><option value="none" selected>0–1 dependencies · dd 1</option><option value="some">2–5 dependencies · dd 2</option><option value="many">6+ dependencies · dd 3</option></select></label>
+            <label>Downstream dependencies<select name="simDownstream"><option value="none" selected>0–1 dependencies</option><option value="some">2–5 dependencies</option><option value="many">6+ dependencies</option></select></label>
           </section>
         </form>
 
@@ -196,13 +195,12 @@
           <div class="sim-result-topline"><span id="simResultMode">Scored pathway</span><span id="simSectionOutcome">Section 2 required</span></div>
           <div class="sim-score-lockup">
             <div class="sim-tier-orbit" id="simTierOrbit"><span id="simTier">High</span></div>
-            <div><span class="sim-score-label">Model Impact Category</span><strong id="simScore">2.10</strong><small id="simScoreCaption">calculated MIC</small></div>
+            <div><span class="sim-score-label">Model Impact Category</span><strong id="simScore">High Impact</strong><small id="simScoreCaption">Questionnaire assessment outcome</small></div>
           </div>
           <p class="sim-result-copy" id="simResultCopy"></p>
 
           <div class="sim-scale-wrap" id="simScaleWrap">
-            <div class="sim-scale-labels"><span>0.00</span><span>1.20</span><span>1.80</span><span>2.20</span><span>3.00</span></div>
-            <div class="sim-scale" aria-label="MIC tier scale"><i class="sim-marker" id="simMarker"></i><span class="scale-low"></span><span class="scale-medium"></span><span class="scale-high"></span><span class="scale-critical"></span></div>
+            <div class="sim-scale" aria-label="Impact category scale"><i class="sim-marker" id="simMarker"></i><span class="scale-low"></span><span class="scale-medium"></span><span class="scale-high"></span><span class="scale-critical"></span></div>
             <div class="sim-band-names"><span>Low</span><span>Medium</span><span>High</span><span>Critical</span></div>
           </div>
 
@@ -222,7 +220,7 @@
 
       <footer class="playground-foot">
         <strong>How to read it</strong>
-        <p>MIC = 0.4 × qn + 0.4 × ql + 0.1 × cx + 0.1 × dd. Low &lt; 1.2; Medium 1.2–&lt;1.8; High 1.8–&lt;2.2; Critical ≥ 2.2. This is a planning aid; the completed submission remains the record reviewed by MRMG.</p>
+        <p>The questionnaire considers business impact, business importance, model complexity, and interdependency. The playground shows the resulting impact category and Section 2 journey without exposing the calculation. The completed submission remains the record reviewed by MRMG.</p>
       </footer>
     </div>
   </dialog>

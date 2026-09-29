@@ -13,6 +13,27 @@ for (const data of earlyExits) {
   assert.equal(score(data).earlyExit, true);
 }
 
+const routingJourneys = [
+  [{ solutionType: "general" }, "Low", false],
+  [{ solutionType: "custom", regulatory: "no", purpose: "core" }, "Assessment required", true],
+  [{ solutionType: "custom", regulatory: "no", purpose: "peopleCompliance" }, "Assessment required", true],
+  [{ solutionType: "custom", regulatory: "no", purpose: "customerExperience" }, "Low", false],
+  [{ solutionType: "custom", regulatory: "no", purpose: "efficiency" }, "Low", false],
+  [{ solutionType: "custom", regulatory: "yes", purpose: "core" }, "Assessment required", true],
+  [{ solutionType: "custom", regulatory: "yes", purpose: "peopleCompliance" }, "Assessment required", true],
+  [{ solutionType: "custom", regulatory: "yes", purpose: "customerExperience" }, "Assessment required", true],
+  [{ solutionType: "custom", regulatory: "yes", purpose: "efficiency" }, "Assessment required", true],
+];
+for (const [data, tier, needsAssessment] of routingJourneys) {
+  const result = route(data);
+  assert.equal(result.complete, true, JSON.stringify(data));
+  assert.equal(result.tier, tier, JSON.stringify(data));
+  assert.equal(result.needsAssessment, needsAssessment, JSON.stringify(data));
+}
+assert.equal(route({}).complete, false);
+assert.equal(route({ solutionType: "custom" }).complete, false);
+assert.equal(route({ solutionType: "custom", regulatory: "no" }).complete, false);
+
 const exactProfiles = [
   [{ solutionType: "custom", regulatory: "no", purpose: "core", impactThreshold: "small", reliance: "multiple", explainable: "yes", fineTuned: "no", multiCall: "no", downstream: "none" }, 0.9, "Low"],
   [{ solutionType: "custom", regulatory: "no", purpose: "core", impactThreshold: "small", reliance: "human", explainable: "no", fineTuned: "yes", multiCall: "no", downstream: "none" }, 1.5, "Medium"],
@@ -73,4 +94,4 @@ assert.equal(minimum, 0.9);
 assert.equal(maximum, 3);
 assert.equal(pathways, 1296);
 assert.deepEqual([1.19, 1.2, 1.79, 1.8, 2.19, 2.2].map(tierForMic), ["Low", "Medium", "Medium", "High", "High", "Critical"]);
-console.log(`Scoring engine verified across ${pathways} assessed combinations and 3 early-exit pathways.`);
+console.log(`Routing matrix verified across ${routingJourneys.length} complete journeys; scoring engine verified across ${pathways} assessed combinations and 3 early-exit pathways.`);

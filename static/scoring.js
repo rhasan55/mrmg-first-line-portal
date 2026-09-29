@@ -32,7 +32,8 @@ export function route(data = {}) {
   if (!data.solutionType) return { complete: false, needsAssessment: false, tier: "Pending", reason: "Select a solution type." };
   if (data.solutionType === "general") return { complete: true, needsAssessment: false, tier: "Low", reason: "General-purpose solutions route directly to Low impact and Section 1." };
   if (!data.regulatory || !data.purpose) return { complete: false, needsAssessment: false, tier: "Pending", reason: "Complete Questions 2 and 3." };
-  if (data.regulatory === "no" && ["customerExperience", "efficiency"].includes(data.purpose)) return { complete: true, needsAssessment: false, tier: "Low", reason: "This combination routes directly to Low impact and does not require Section 2." };
+  if (data.regulatory === "no" && data.purpose === "customerExperience") return { complete: true, needsAssessment: false, tier: "Low", reason: "A customized solution with no regulatory-reporting use that enhances customer experience without direct impact on AXP's core business routes to Low impact and does not require Section 2." };
+  if (data.regulatory === "no" && data.purpose === "efficiency") return { complete: true, needsAssessment: false, tier: "Low", reason: "A customized solution with no regulatory-reporting use that creates colleague process efficiencies without direct impact on AXP's core business routes to Low impact and does not require Section 2." };
   return { complete: true, needsAssessment: true, tier: "Assessment required", reason: "The selected use requires the Section 2 impact assessment." };
 }
 

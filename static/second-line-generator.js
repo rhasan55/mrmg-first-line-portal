@@ -1,7 +1,7 @@
 import JSZip from "jszip";
 
 const XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
-const COLORS = { navy: "1F3A68", green: "548235", gray: "A6A6A6", line: "5B6572", black: "000000", white: "FFFFFF" };
+const COLORS = { navy: "1F3A68", green: "548235", red: "C00000", gray: "A6A6A6", line: "5B6572", black: "000000", white: "FFFFFF" };
 
 function x(value) {
   return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
@@ -37,6 +37,7 @@ function run(text, options = {}) {
 }
 function label(text, options = {}) { return run(text, { ...options, color: options.color || COLORS.black }); }
 function value(text, options = {}) { return run(clean(text), { ...options, color: COLORS.green, bold: options.bold ?? true }); }
+function decision(text, options = {}) { return run(clean(text), { ...options, color: COLORS.red, bold: options.bold ?? true }); }
 
 function paragraph(runs, options = {}) {
   const spacing = `<w:spacing w:before="${options.before ?? 0}" w:after="${options.after ?? 95}" w:line="${options.line ?? 240}" w:lineRule="auto"/>`;
@@ -75,13 +76,14 @@ function table(rows, widths) {
 function metadataTable(data) {
   const labelCell = text => cell(label(text, { bold: true, color: COLORS.white, size: 9 }), { fill: COLORS.navy, width: 2350 });
   const valueCell = text => cell(value(text, { size: 9.5 }), { width: 2350 });
+  const decisionCell = text => cell(decision(text, { size: 9.5 }), { width: 2350 });
   const tier = [clean(data.impactTier) ? `${clean(data.impactTier)} Impact` : "", clean(data.impactSubtype)].filter(Boolean).join(" - ");
   return table([
     row([labelCell("OMNI ID"), valueCell(data.omniId), labelCell("Date"), valueCell(normalizeDate(data.reportDate))]),
-    row([labelCell("Model Name"), valueCell(data.modelName), labelCell("Impact Tier"), valueCell(tier)]),
+    row([labelCell("Model Name"), valueCell(data.modelName), labelCell("Impact Tier"), decisionCell(tier)]),
     row([labelCell("Business VP+"), valueCell(data.businessVp), labelCell("MRMG VP+"), valueCell(data.mrmgVp)]),
     row([labelCell("Model Owner (B40+)"), valueCell(data.modelOwner), labelCell("Lead Validator/ Validators"), valueCell(data.validators)]),
-    row([labelCell("Market"), valueCell(data.market), labelCell("Validation Status"), valueCell(data.validationStatus || data.overallStatus)]),
+    row([labelCell("Market"), valueCell(data.market), labelCell("Validation Status"), decisionCell(data.validationStatus || data.overallStatus)]),
   ], [2350, 2350, 2350, 2350]);
 }
 function matrixTable(data) {
@@ -109,11 +111,11 @@ function pageOne(data) {
   ]);
   body += paragraph([
     label("The use case employs "), value(data.llmNames || data.modelName), label(" as the large language model. The LLM "), value(data.outputTypes),
-    label(". MRMG finds the use case scope to be "), value(data.scopeAssessment), clean(data.scopeClarification) ? label(" on ") : "", value(data.scopeClarification),
-    label(" and "), value(data.documentConsistency), label(" with the attached overview document and process flow."),
+    label(". MRMG finds the use case scope to be "), decision(data.scopeAssessment), clean(data.scopeClarification) ? label(" on ") : "", value(data.scopeClarification),
+    label(" and "), decision(data.documentConsistency), label(" with the attached overview document and process flow."),
   ]);
   body += paragraph([
-    value(data.modelName), label(" is a "), value(classification), label(" deployed across "), value(data.deploymentScope),
+    value(data.modelName), label(" is a "), decision(classification), label(" deployed across "), value(data.deploymentScope),
     label(" in the enterprise to enhance "), value(enhancement), label(" with no impact to core AXP business."),
   ]);
   if (isProductivity(data) || !clean(data.impactSubtype)) body += paragraph([
@@ -137,22 +139,29 @@ function pageTwo(data) {
     label("<For Medium Impact models> ", { italic: true }), label("The model "), value(data.upstreamUse), label(" use output from an upstream model as a direct input"),
     clean(data.upstreamModel) ? label("; specifically, ") : "", value(data.upstreamModel), label(". The intended users are "), value(data.intendedUsers),
     label(", with an estimated user base of "), value(data.userBase), label(" users and the generated output is consumed as "), value(data.outputConsumption),
-    label(". The use case is expected to "), value(data.businessValue), label(". MRMG finds the use case scope to be "), value(data.scopeAssessment),
-    clean(data.scopeClarification) ? label(" on ") : "", value(data.scopeClarification), label(" and "), value(data.documentConsistency), label(" with the attached overview document."),
+    label(". The use case is expected to "), value(data.businessValue), label(". MRMG finds the use case scope to be "), decision(data.scopeAssessment),
+    clean(data.scopeClarification) ? label(" on ") : "", value(data.scopeClarification), label(" and "), decision(data.documentConsistency), label(" with the attached overview document."),
   ]);
   body += paragraph([
     label("<For Other Low Impact models> ", { italic: true }), label("The intended users are "), value(data.intendedUsers),
-    label(" and the generated output is consumed as "), value(data.outputConsumption), label(". MRMG finds the use case scope to be "), value(data.scopeAssessment),
-    clean(data.scopeClarification) ? label(" on ") : "", value(data.scopeClarification), label(" and "), value(data.documentConsistency), label(" with the attached overview document."),
+    label(" and the generated output is consumed as "), value(data.outputConsumption), label(". MRMG finds the use case scope to be "), decision(data.scopeAssessment),
+    clean(data.scopeClarification) ? label(" on ") : "", value(data.scopeClarification), label(" and "), decision(data.documentConsistency), label(" with the attached overview document."),
   ]);
   body += textParagraph("The use case was assessed against the Model Impact Categorization across four key pillars. The scores are summarized below:");
   body += matrixTable(data);
   body += paragraph(label("Table 1: Model Impact Categorization Matrix", { italic: true, size: 9 }), { align: "center", before: 55, after: 90 });
-  body += paragraph([
-    label("The final computed score of "), value(data.finalScore), label(" falls at / below the threshold of "), value(data.impactThreshold),
-    label(" established for the Low impact tier. Accordingly, MRMG categorizes this use case as "), value(data.impactTier),
-    label(" Impact and has applied the corresponding validation approach."),
-  ]);
+  if (clean(data.finalScore)) {
+    body += paragraph([
+      label("The final computed score of "), value(data.finalScore), label(" falls within the "), decision(data.impactTier),
+      label(" impact range. Accordingly, MRMG categorizes this use case as "), decision(data.impactTier),
+      label(" Impact and has applied the corresponding validation approach."),
+    ]);
+  } else {
+    body += paragraph([
+      label("The submitted impact categorization identifies this use case as "), decision(data.impactTier),
+      label(" Impact. MRMG has applied the corresponding validation approach."),
+    ]);
+  }
   return body;
 }
 
@@ -161,13 +170,13 @@ function pageThree(data) {
   body += paragraph([
     label("<For All models> ", { italic: true }), label("GenAI Model Details: ", { bold: true }), label("The use case employs "), value(data.modelName),
     label(", version "), value(data.modelVersion), label(", hosted "), value(data.hosting), label(". MRMG ascertains that the model details are "),
-    value(data.modelDetailsAssessment), clean(data.modelCorrection) ? label(" on ") : "", value(data.modelCorrection), label(" and the hosting arrangement is "),
-    value(data.hostingAssessment), clean(data.hostingConcern) ? label(" regarding ") : "", value(data.hostingConcern), label("."),
+    decision(data.modelDetailsAssessment), clean(data.modelCorrection) ? label(" on ") : "", value(data.modelCorrection), label(" and the hosting arrangement is "),
+    decision(data.hostingAssessment), clean(data.hostingConcern) ? label(" regarding ") : "", value(data.hostingConcern), label("."),
   ]);
   body += paragraph([
     label("<For Medium Impact models> ", { italic: true }), label("Prompt Design: ", { bold: true }), label("Modeling team has "), value(data.promptProvided),
-    label(" prompt file(s). MRMG concludes that the prompt design approach is "), value(data.promptApproach),
-    label(" for the stated use case and supporting documentation is "), value(data.supportSufficiency), label("."),
+    label(" prompt file(s). MRMG concludes that the prompt design approach is "), decision(data.promptApproach),
+    label(" for the stated use case and supporting documentation is "), decision(data.supportSufficiency), label("."),
   ], { before: 110 });
   body += paragraph([
     label("<For Medium Impact models> ", { italic: true }), label("Implementation Date: ", { bold: true }), label("The use case is targeted for deployment on "),
@@ -180,14 +189,14 @@ function pageThree(data) {
   body += paragraph([
     label("<For All models> ", { italic: true }), label("Validation Results: ", { bold: true }), label("The modeling team tested the use case on a sample of "),
     value(data.validationSampleSize), label(" test cases. Reported metrics include "), value(data.validationMetrics),
-    label(". MRMG finds the testing methodology to be "), value(data.testingMethodology), clean(data.testingIssue) ? label(" due to ") : "", value(data.testingIssue),
-    label(", the sample size "), value(data.sampleAssessment), label(", and reported metrics "), value(data.metricsAssessment), label(" acceptable thresholds."),
+    label(". MRMG finds the testing methodology to be "), decision(data.testingMethodology), clean(data.testingIssue) ? label(" due to ") : "", value(data.testingIssue),
+    label(", the sample size "), decision(data.sampleAssessment), label(", and reported metrics "), decision(data.metricsAssessment), label(" acceptable thresholds."),
   ], { before: 110 });
   body += paragraph([
     label("<For Medium Impact models> ", { italic: true }), label("Data Quality Controls: ", { bold: true }), label("Since data "), value(data.dataFlows),
     label(" flow systematically into the model, data quality controls "), value(data.controlsRequired), label(" required to be implemented. "),
     value(data.controlStatement), clean(data.controlLimitation) ? label(" ") : "", value(data.controlLimitation),
-    label(" MRMG assessed the identified "), value(data.controlType), label(" is commensurate with the risk and is "), value(data.controlAdequacy), label(" to mitigate the associated risk."),
+    label(" MRMG assessed the identified "), value(data.controlType), label(" is commensurate with the risk and is "), decision(data.controlAdequacy), label(" to mitigate the associated risk."),
   ], { before: 110 });
   body += applicability("Ongoing monitoring is not applicable for Medium Impact Customer-facing Pilot use-cases");
   body += paragraph([label("Ongoing Monitoring Plan: ", { bold: true }), label("The modeling team has established an ongoing monitoring plan for the use case. The key components are as follows:")], { after: 60 });
@@ -204,10 +213,10 @@ function pageFour(data) {
   body += bullet([label("Amber (Warning): ", { bold: true }), label("Performance metric breaches "), value(data.amberThreshold), label(". This triggers heightened monitoring with continued tracking over additional periods. "), value(data.amberAction)], 1);
   body += bullet([label("Red (Fail): ", { bold: true }), label("Performance metric breaches "), value(data.failThreshold), label(". This triggers a mandatory Root Cause Analysis (RCA), "), value(data.redAction)], 1);
   body += paragraph([
-    label("MRMG reviewed the monitoring plan and finds the selected metric(s) to be "), value(data.metricAppropriateness), clean(data.monitoringCoverageGap) ? label(" to capture ") : "", value(data.monitoringCoverageGap),
-    label(" for the use case. The sample size is "), value(data.monitoringSampleAssessment), label(" for meaningful monitoring, and the threshold framework with associated escalation actions is "),
-    value(data.thresholdAssessment), clean(data.thresholdRefinement) ? label(" on ") : "", value(data.thresholdRefinement), label(". MRMG concludes that the ongoing monitoring plan is "),
-    value(isPilot(data) ? "" : data.planAdequacy), label(" to detect performance degradation in a timely manner."),
+    label("MRMG reviewed the monitoring plan and finds the selected metric(s) to be "), decision(data.metricAppropriateness), clean(data.monitoringCoverageGap) ? label(" to capture ") : "", value(data.monitoringCoverageGap),
+    label(" for the use case. The sample size is "), decision(data.monitoringSampleAssessment), label(" for meaningful monitoring, and the threshold framework with associated escalation actions is "),
+    decision(data.thresholdAssessment), clean(data.thresholdRefinement) ? label(" on ") : "", value(data.thresholdRefinement), label(". MRMG concludes that the ongoing monitoring plan is "),
+    decision(isPilot(data) ? "" : data.planAdequacy), label(" to detect performance degradation in a timely manner."),
   ], { before: 95 });
   body += sectionHeading("Finding Details");
   if (!clean(data.findingTitle) && !clean(data.findingDescription)) {
@@ -217,7 +226,7 @@ function pageFour(data) {
     body += paragraph(value(data.findingDescription));
     body += paragraph([label("MRMG Challenge: ", { bold: true }), value(data.mrmgChallenge)]);
     body += paragraph([label("MT Response: ", { bold: true }), value(data.mtResponse)]);
-    body += paragraph([label("MRMG Assessment: ", { bold: true }), value(data.mrmgAssessment)]);
+    body += paragraph([label("MRMG Assessment: ", { bold: true }), decision(data.mrmgAssessment)]);
   }
   body += sectionHeading("Validation Conclusion");
   body += paragraph([label("MRMG has completed its assessment of the "), value(data.modelName), label(" use case.")]);
@@ -234,13 +243,13 @@ function pageFive(data) {
   const status = clean(data.overallStatus || data.validationStatus);
   let body = titleHeader(data);
   body += paragraph([
-    label("<For Other Low or Medium Impact Models> ", { italic: true }), label("The final impact score of "), value(data.finalScore), label(" confirms the "), value(tier),
+    label("<For Other Low or Medium Impact Models> ", { italic: true }), label("The final impact score of "), value(data.finalScore), label(" confirms the "), decision(tier),
     label(" impact categorization under the Model Impact Categorization criteria, hence MRMG applied the validation approach followed for "),
     value(tier === "Medium" ? "Moderate Impact Models" : tier ? `${tier} Impact Models` : ""), label("."),
   ]);
   body += paragraph([
     label("MRMG independently assessed the use case scope and definition, risk identification and compensating controls, model selection and design approach, validation testing and performance metrics, mandatory controls framework, implementation readiness and the ongoing monitoring plan are "),
-    value(data.documentationAssessment), label(" documented and is "), value(data.validationSatisfaction), label("."),
+    decision(data.documentationAssessment), label(" documented and is "), decision(data.validationSatisfaction), label("."),
   ]);
   body += paragraph([label("Further, the business B70+ ("), value(data.businessAttester), label(") has provided attestation confirming that:")], { after: 55 });
   body += bullet(label("All information provided regarding the use case in the model documentation is accurate,"), 0);
@@ -255,9 +264,9 @@ function pageFive(data) {
   ]);
   body += paragraph([
     label("Taking into consideration the impact categorization, the validation outcomes across each assessment area, the adequacy of the established controls framework, "),
-    value(data.findingClosure), label(", the business attestation on residual risk acceptance"),
+    decision(data.findingClosure), label(", the business attestation on residual risk acceptance"),
     isPilot(data) ? label(", and MRC approval for pilot launch") : "", label(", MRMG concludes that "), value(data.modelName),
-    label(" is validated and the overall validation status is "), value(status), clean(data.pilotMonths) && /limited use/i.test(status) ? label(" for ") : "",
+    label(" is validated and the overall validation status is "), decision(status), clean(data.pilotMonths) && /limited use/i.test(status) ? label(" for ") : "",
     /limited use/i.test(status) ? value(data.pilotMonths) : "", clean(data.pilotMonths) && /limited use/i.test(status) ? label(" months") : "", label("."),
   ]);
   body += paragraph([label("Findings, if any: ", { bold: true }), value(data.conclusionFindings)]);

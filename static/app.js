@@ -91,7 +91,7 @@ function formData() {
   return data;
 }
 
-function activeSteps() { const routed = route(); return routed.complete && !routed.needsAssessment ? steps.filter(step => step.id !== "assessment") : steps; }
+function activeSteps(data = formData()) { const routed = route(data); return routed.complete && !routed.needsAssessment ? steps.filter(step => step.id !== "assessment") : steps; }
 function setNamed(name, value) {
   const elements = [...form.querySelectorAll(`[name="${name}"]`)];
   for (const [i, element] of elements.entries()) {
@@ -108,7 +108,7 @@ function updateDriverRules(preserve = true) {
   select.innerHTML = `<option value="">${drivers.length ? "Select" : "Choose a business process first"}</option>` + drivers.map(driver => `<option>${esc(driver)}</option>`).join("");
   if (drivers.includes(prior)) select.value = prior;
   const bands = businessRules[process]?.[select.value];
-  [["smallBand", 0, 1], ["mediumBand", 1, 2], ["largeBand", 2, 3]].forEach(([id, band, qn]) => document.querySelector(`#${id}`).innerHTML = bands ? `${esc(bands[band])} · <code>qn = ${qn}</code>` : `<code>qn = ${qn}</code>`);
+  [["smallBand", 0], ["mediumBand", 1], ["largeBand", 2]].forEach(([id, band]) => document.querySelector(`#${id}`).textContent = bands ? bands[band] : "Select a business process and quantitative driver" );
 }
 
 function syncApplicability() {
@@ -122,11 +122,21 @@ function syncApplicability() {
 }
 
 function renderDecision() {
-  const routed = route(); routingResult.hidden = !routed.complete;
+  const data = formData();
+  const routed = route(data); routingResult.hidden = !routed.complete;
   if (routed.complete) routingResult.innerHTML = `<strong>${esc(routed.tier)}</strong><p>${esc(routed.reason)}</p>`;
-  const result = score(); assessmentResult.className = `decision-card ${result.tier.toLowerCase()}`;
-  assessmentResult.innerHTML = !result.complete ? `<strong>MIC pending</strong><p>${esc(result.reason)}</p>` : result.earlyExit ? `<strong>Low</strong><p>Early-exit route; MIC is not calculated and Section 2 is omitted.</p>` : `<strong>${esc(result.tier)} · MIC ${result.score.toFixed(2)}</strong><p>0.4 × qn + 0.4 × ql + 0.1 × cx + 0.1 × dd</p>`;
-  scoreBreakdown.innerHTML = result.components ? [["qn", result.components.qn, "40%", .4], ["ql", result.components.ql, "40%", .4], ["cx", result.components.cx, "10%", .1], ["dd", result.components.dd, "10%", .1]].map(([name, value, weight, factor]) => `<div><span>${name} · ${weight}</span><strong>${value}</strong><small>contributes ${(factor * value).toFixed(2)}</small></div>`).join("") : `<div class="score-empty"><span>MIC components</span><strong>—</strong><small>${esc(result.reason)}</small></div>`;
+  const result = score(data); assessmentResult.className = `decision-card ${result.tier.toLowerCase()}`;
+  assessmentResult.innerHTML = !result.complete ? `<strong>Impact outcome pending</strong><p>${esc(result.reason)}</p>` : result.earlyExit ? `<strong>Low Impact</strong><p>Complete Section 1. Section 2 is not required for this route.</p>` : `<strong>${esc(result.tier)} Impact</strong><p>The completed Section 2 responses place this use case in the ${esc(result.tier)} Impact category.</p>`;
+  const reliance = { direct: "Direct use", human: "Human review or fallback", multiple: "Multiple reviews or recommendation only" }[data.reliance] || "Pending";
+  const purpose = { core: "Core payments or lending", peopleCompliance: "Colleague, compliance, or regulatory assessment", customerExperience: "Customer experience with no direct core-business impact", efficiency: "Colleague efficiency with no direct core-business impact" }[data.purpose] || "Pending";
+  const complexity = [data.explainable === "no" ? "Explainability not feasible" : "", data.fineTuned === "yes" ? "Fine-tuned foundation model" : "", data.multiCall === "yes" ? "More than two sequential calls" : ""].filter(Boolean).join(" · ") || "No additional complexity drivers selected";
+  const dependency = { none: "0–1 downstream dependencies", some: "2–5 downstream dependencies", many: "6+ downstream dependencies" }[data.downstream] || "Pending";
+  scoreBreakdown.innerHTML = result.components ? [
+    ["Business impact", data.regulatory === "yes" ? "Regulatory reporting use" : `${data.impactThreshold || "Pending"} annual impact band`, data.regulatory === "yes" ? "The highest impact band applies." : "Based on the selected process and quantitative driver."],
+    ["Business importance", reliance, purpose],
+    ["Model complexity", complexity, "Explainability, fine-tuning, and sequential-call design are considered together."],
+    ["Interdependency", dependency, "Based on the number of downstream dependencies."],
+  ].map(([name, outcome, note]) => `<div><span>${esc(name)}</span><strong>${esc(outcome)}</strong><small>${esc(note)}</small></div>`).join("") : `<div class="score-empty"><span>Impact outcome</span><strong>Pending</strong><small>${esc(result.reason)}</small></div>`;
 }
 
 function requirementList(data = formData()) {
@@ -182,7 +192,7 @@ function updateNavigation() {
 }
 function review() {
   const data = formData(), routed = route(data), result = score(data), markets = values(data.markets).join(", ") || "—";
-  document.querySelector("#reviewSummary").innerHTML = [["Use case", data.useCaseName || "—"], ["Model", `${data.modelName || "—"} ${data.modelVersion || ""}`], ["Routing", routed.tier], ["Final impact", result.score == null ? result.tier : `${result.tier} · MIC ${result.score.toFixed(2)}`], ["Section 2", routed.needsAssessment ? "Included and completed" : "Not required for this route"], ["Markets", markets], ["Metrics", document.querySelectorAll(".metric-card").length], ["LLM calls", document.querySelectorAll(".prompt-call").length], ["Output", "7 core files plus optional support"]].map(([key, value]) => `<div class="review-item"><span>${esc(key)}</span><strong>${esc(value)}</strong></div>`).join("");
+  document.querySelector("#reviewSummary").innerHTML = [["Use case", data.useCaseName || "—"], ["Model", `${data.modelName || "—"} ${data.modelVersion || ""}`], ["Routing", routed.tier], ["Final impact", result.complete ? `${result.tier} Impact` : "Pending"], ["Section 2", routed.needsAssessment ? "Included and completed" : "Not required for this route"], ["Markets", markets], ["Metrics", document.querySelectorAll(".metric-card").length], ["LLM calls", document.querySelectorAll(".prompt-call").length], ["Output", "7 core files plus optional support"]].map(([key, value]) => `<div class="review-item"><span>${esc(key)}</span><strong>${esc(value)}</strong></div>`).join("");
   showMissingSummary(missingFields(data));
 }
 function render(scroll = true) {
@@ -256,6 +266,7 @@ function renderPlayground() {
   const routed = route(data);
   const result = score(data);
   const earlyExit = result.earlyExit;
+  const purposeLabels = { core: "core payments or lending", peopleCompliance: "people, compliance, legal, or regulatory", customerExperience: "customer experience", efficiency: "colleague efficiency" };
   const routeDependent = playgroundForm.querySelector(".sim-route-dependent");
   const assessmentControls = document.querySelector("#simAssessmentControls");
   routeDependent.hidden = data.solutionType === "general";
@@ -268,30 +279,37 @@ function renderPlayground() {
   const orbit = document.querySelector("#simTierOrbit");
   orbit.className = `sim-tier-orbit ${tier.toLowerCase()}`;
   document.querySelector("#simTier").textContent = tier;
-  document.querySelector("#simResultMode").textContent = earlyExit ? "Routing outcome" : "Scored pathway";
+  document.querySelector("#simResultMode").textContent = earlyExit ? "Routing outcome" : "Assessment outcome";
   document.querySelector("#simSectionOutcome").textContent = earlyExit ? "Section 2 omitted" : "Section 2 required";
-  document.querySelector("#simScore").textContent = earlyExit ? "—" : result.score.toFixed(2);
-  document.querySelector("#simScoreCaption").textContent = earlyExit ? "MIC not calculated" : "calculated MIC";
+  document.querySelector("#simScore").textContent = `${tier} Impact`;
+  document.querySelector("#simScoreCaption").textContent = earlyExit ? "Questionnaire early-exit outcome" : "Questionnaire assessment outcome";
   document.querySelector("#simMobileTier").textContent = tier;
-  document.querySelector("#simMobileScore").textContent = earlyExit ? "Section 1 only" : result.score.toFixed(2);
+  document.querySelector("#simMobileScore").textContent = earlyExit ? "Section 1 only" : "Section 2 required";
   document.querySelector("#simResultCopy").textContent = earlyExit
     ? `${routed.reason} The model still completes Section 1 and the evidence package.`
-    : `The weighted inputs produce a ${result.score.toFixed(2)} MIC, which falls in the ${result.tier} band.`;
+    : `The selected Section 2 answers result in a ${result.tier} Impact outcome. The detailed calculation remains in the generated submission record.`;
 
   const scale = document.querySelector("#simScaleWrap");
   scale.hidden = earlyExit;
-  if (!earlyExit) document.querySelector("#simMarker").style.left = `${Math.max(0, Math.min(100, result.score / 3 * 100))}%`;
+  if (!earlyExit) document.querySelector("#simMarker").style.left = `${({ Low: 12.5, Medium: 37.5, High: 62.5, Critical: 87.5 })[result.tier]}%`;
 
   const components = document.querySelector("#simComponents");
   if (earlyExit) {
     components.className = "sim-components is-empty";
-    components.innerHTML = `<div class="sim-component"><span>Scoring bypassed</span><strong>Section 1 only</strong><small>No qn, ql, cx, or dd components are calculated on an early-exit route.</small></div>`;
+    components.innerHTML = `<div class="sim-component"><span>Questionnaire route</span><strong>Section 1 only</strong><small>The selected answers meet an approved Low Impact early-exit rule.</small></div>`;
   } else {
     components.className = "sim-components";
-    components.innerHTML = [["qn", result.components.qn, "40%", .4], ["ql", result.components.ql, "40%", .4], ["cx", result.components.cx, "10%", .1], ["dd", result.components.dd, "10%", .1]].map(([name, value, weight, factor]) => `<div class="sim-component"><span>${name} · ${weight}</span><strong>${value}</strong><small>adds ${(value * factor).toFixed(2)}</small></div>`).join("");
+    const reliance = { direct: "Direct use", human: "Human review or fallback", multiple: "Multiple reviews" }[data.reliance];
+    const complexity = [data.explainable === "no" ? "Explainability not feasible" : "", data.fineTuned === "yes" ? "Fine-tuned model" : "", data.multiCall === "yes" ? "More than two sequential calls" : ""].filter(Boolean).join(" · ") || "No additional drivers";
+    const downstream = { none: "0–1 dependencies", some: "2–5 dependencies", many: "6+ dependencies" }[data.downstream];
+    components.innerHTML = [
+      ["Business impact", data.regulatory === "yes" ? "Regulatory reporting" : `${data.impactThreshold} band`, data.regulatory === "yes" ? "Highest band applies" : "Selected process threshold"],
+      ["Business importance", reliance, purposeLabels[data.purpose]],
+      ["Model complexity", complexity, "Design characteristics"],
+      ["Interdependency", downstream, "Downstream reach"],
+    ].map(([name, value, note]) => `<div class="sim-component"><span>${esc(name)}</span><strong>${esc(value)}</strong><small>${esc(note)}</small></div>`).join("");
   }
 
-  const purposeLabels = { core: "core payments or lending", peopleCompliance: "people, compliance, legal, or regulatory", customerExperience: "customer experience", efficiency: "colleague efficiency" };
   const trace = data.solutionType === "general" ? [
     "General-purpose capability selected.",
     "Regulatory-use and business-purpose questions are bypassed.",
@@ -302,8 +320,8 @@ function renderPlayground() {
     "Low Impact route: complete Section 1; Section 2 is omitted.",
   ] : [
     "Customized solution does not qualify for an early exit.",
-    data.regulatory === "yes" ? "Regulatory-reporting use forces qn to 3." : `The ${purposeLabels[data.purpose]} purpose proceeds to the weighted assessment.`,
-    `qn ${result.components.qn} + ql ${result.components.ql} + cx ${result.components.cx} + dd ${result.components.dd} produces ${result.score.toFixed(2)} (${result.tier}).`,
+    data.regulatory === "yes" ? "Regulatory-reporting use applies the highest business-impact band." : `The ${purposeLabels[data.purpose]} purpose proceeds to the Section 2 assessment.`,
+    `The business impact, business importance, model complexity, and interdependency answers result in ${result.tier} Impact.`,
   ];
   document.querySelector("#simTrace").innerHTML = trace.map(item => `<li>${esc(item)}</li>`).join("");
   document.querySelector("#simApplyStatus").textContent = "The playground is isolated from your saved draft until you use this button.";
@@ -364,7 +382,7 @@ document.querySelector("#generateBtn").addEventListener("click", async () => {
   if (missing.length) { status.textContent = "Generation paused until all applicable required fields are complete."; missingSummary.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
   button.disabled = true;
   try {
-    if (STATIC_MODE) { status.textContent = "Creating the Word, Excel, email, JSON, and ZIP package on this device…"; const { generateBrowserPackage } = await import("./browser-generator.js"); const result = await generateBrowserPackage({ ...formData(), impactTier: score().tier, assessmentScore: score().score, assessmentComponents: score().components, section2Included: route().needsAssessment }, [...document.querySelector("#supportingFiles").files]); downloadBlob(result.blob, result.filename); status.textContent = result.summary; }
+    if (STATIC_MODE) { status.textContent = "Creating the Word, Excel, email, JSON, and ZIP package on this device…"; const { generateBrowserPackage } = await import("./browser-generator.js"); const data = formData(), assessment = score(data), routed = route(data); const result = await generateBrowserPackage({ ...data, impactTier: assessment.tier, assessmentScore: assessment.score, assessmentComponents: assessment.components, section2Included: routed.needsAssessment }, [...document.querySelector("#supportingFiles").files]); downloadBlob(result.blob, result.filename); status.textContent = result.summary; }
     else { status.textContent = "Generating and validating the document, workbook, and email package…"; const response = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(await payloadWithFiles()) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || "Generation failed"); status.innerHTML = `Package generated successfully. <a href="${esc(result.download)}">Download ${esc(result.filename)}</a><br>${esc(result.summary)}`; }
   } catch (error) { status.textContent = `Could not generate: ${error.message}`; } finally { button.disabled = false; }
 });

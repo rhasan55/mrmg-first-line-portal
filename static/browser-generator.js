@@ -209,20 +209,20 @@ async function makeDocx(title, body, embeddings = [], footnotes = [], options = 
 function primaryBody(data) {
   const markets = list(data.markets);
   const purposeOptions = [
-    ["core", "Model decision has direct impact on AXP's core business, e.g., payment and lending decisions."],
-    ["peopleCompliance", "Model is used in applications that affect employment, compliance, legal, or regulatory decisions."],
-    ["customerExperience", "Model enhances customer experience, communications, or service interactions."],
-    ["efficiency", "Model creates productivity or efficiency within AXP's core business, e.g., code suggestions or colleague support."],
+    ["core", "Model decision has direct impact on AXP's core business of payments & lending – for e.g. customer credit risk score, card response model, prospect targeting models, automation of credit and collections process etc."],
+    ["peopleCompliance", "Model is used in applications that impact colleagues' compensation or employment decisions, or are used for compliance/regulatory assessments or checks – for e.g. VIBES score, Marketing Content Compliance Review, GCS Sales Misconduct Self-Testing etc."],
+    ["customerExperience", "Models used for enhancing customer experience with no direct impact on AXP's core business – for e.g. customer expense management spend classifier, restaurant recommender, etc."],
+    ["efficiency", "Models used to create process efficiencies for colleagues with no direct impact on AXP's core business – for e.g. email or message drafting, document summarizer / writer, code suggestions, etc."],
   ];
   let body = p(r("Who should complete: ", { bold: true, italic: true }) + r("Use-case owner or modeling lead (B40+)", { italic: true }), { raw: true, after: 80 });
   body += p(r("Instructions: ", { bold: true, italic: true }) + r("For each question, choose the single best option. If unsure, choose the higher-impact option.", { italic: true }), { raw: true });
-  body += prompt(1, "Which of the following types of GenAI solution fits this use case best? (Select one)");
-  body += option(data.solutionType === "general", "General-purpose AI capability or tool, e.g., ChatGPT, Microsoft Office Copilot, coding accelerators, or another capability without a specific business purpose.");
-  body += option(data.solutionType === "custom", "Customized solution for a specific business purpose or use, e.g., task generation, control recommender, help-desk assistant, etc.");
+  body += prompt(1, "Which of the following types of GenAI solution fits this use-case best? (Select one)");
+  body += option(data.solutionType === "general", "General purpose AI capability or tool, e.g., ChatGPT, Microsoft Office Copilot, coding accelerators, etc. without any specific business purpose or use.");
+  body += option(data.solutionType === "custom", "Customized solution for a specific business purpose or use, e.g., deck generation, control recommender, tech care support, etc.");
   if (data.solutionType !== "general") {
     body += prompt(2, "Is the model output used as an input to any regulatory reporting (e.g., CCAR, CECL, SAR filings, stress testing, capital or liquidity reporting, etc.)?");
     body += option(data.regulatory === "yes", "Yes") + option(data.regulatory === "no", "No");
-    body += prompt(3, "What is the purpose and business usage of the model?");
+    body += prompt(3, "What is the purpose and business usage of this model?");
     for (const [key, text] of purposeOptions) body += option(data.purpose === key, text, true);
   }
   const nextStep = data.section2Included
@@ -262,16 +262,19 @@ function primaryBody(data) {
   if (data.section2Included) {
     const components = data.assessmentComponents || {};
     body += pageBreak() + heading("Section 2: Model Risk Tier Assessment");
-    body += p("Who are the intended end users of this use case? (Select one)", { bold: true });
-    body += option(data.endUsers === "none", "No direct end users / foundational capability") + option(data.endUsers === "customer", "Customer-facing or applied to customer-impacting decisions") + option(data.endUsers === "internal", "Internal colleagues");
+    body += p("Who are the intended end-users of this use-case? (Select one)", { bold: true });
+    body += option(data.endUsers === "none", "No end-users: Model serves foundational capabilities or informs internal decisions (e.g., Responsible AI checks, capital adequacy, etc.).") + option(data.endUsers === "customer", "Customer-facing with direct use by Amex customers or directly applied to customer impacting decisions.") + option(data.endUsers === "internal", "Internal facing for Amex colleagues; (e.g., communicate travel recommendations to customers, document summarization, etc.).");
     body += heading("A. Business Impact (Quantitative)", 2) + businessImpactTable(data);
     body += p("All quantitative driver metrics—including action volume, gross contribution margin, pre-tax income, and related measures—are measured on an annual basis.", { italic: true, size: 9 });
     body += p("Adverse Action Volume is the number of customers adversely impacted (for example, pended or declined transactions or applications). Alert Volume is measured by entities screened for screening models and by alerts or cases evaluated for true-match/false-positive models. If no traditional metric is available, estimate and report pre-tax income impact.", { italic: true, size: 9 });
-    body += heading("B. Business Importance (Qualitative)", 2) + option(data.reliance === "direct", "Direct reliance / automated decision") + option(data.reliance === "human", "Human review or fallback") + option(data.reliance === "multiple", "Multiple reviews / recommendation only");
+    body += heading("B. Business Importance (Qualitative)", 2) + p("Reliance on model output – What is the level of reliance on the model's output in your business workflow?", { bold: true });
+    body += option(data.reliance === "direct", "Direct use: The model's output is used directly and automatically to make decisions or take actions") + option(data.reliance === "human", "Human review: The model's output is used after an SME review OR customer/colleague has a fallback option") + option(data.reliance === "multiple", "Multiple reviews: The model's output is used after multiple SME/process reviews OR model only makes recommendations / summaries which can be bypassed or overridden by customer / colleague");
     body += p(r("Subject-matter expert review requirements apply to model outputs", { italic: true, size: 9 }) + footnoteReference(3), { raw: true });
-    body += heading("C. Model Complexity", 2) + p("C1 – Explainability feasible?", { bold: true, keepNext: true }) + option(data.explainable === "yes", "Yes", false, true) + option(data.explainable === "no", "No");
-    body += p("C2 – Foundational model fine-tuned?", { bold: true, keepNext: true }) + option(data.fineTuned === "yes", "Yes", false, true) + option(data.fineTuned === "no", "No");
-    body += p("C3 – More than two sequential LLM calls?", { bold: true, keepNext: true }) + option(data.multiCall === "yes", "Yes", false, true) + option(data.multiCall === "no", "No");
+    body += heading("C. Model Complexity", 2) + p("C1. Explainability – Are feasible techniques available to provide an explanation for the model's output in this use case?", { bold: true, keepNext: true }) + option(data.explainable === "yes", "Yes", false, true) + option(data.explainable === "no", "No");
+    body += p("Examples: Interpretability techniques exist that explain the model output in context of the input provided to the model, for example, SHAP, LIME, etc. Answer “Yes” only if interpretability techniques exist and have been assessed during model development.", { italic: true, size: 9 });
+    body += p("C2. Specification – Is the foundational model fine-tuned for this use case?", { bold: true, keepNext: true }) + option(data.fineTuned === "yes", "Yes", false, true) + option(data.fineTuned === "no", "No");
+    body += p("Examples of fine-tuning include supervised fine-tuning, LoRA/adapters, instruction tuning, or domain-specialized weights. Few-shot prompting alone = “No”.", { italic: true, size: 9 });
+    body += p("C3. Number of LLM calls – In a typical user flow, are there more than 2 sequential LLM calls to complete a task?", { bold: true, keepNext: true }) + option(data.multiCall === "yes", "Yes", false, true) + option(data.multiCall === "no", "No");
     body += heading("D. Interdependency", 2) + option(data.downstream === "none", "0–1 downstream dependencies") + option(data.downstream === "some", "2–5 downstream dependencies") + option(data.downstream === "many", "6+ downstream dependencies");
     body += table([["qn (40%)", "ql (40%)", "cx (10%)", "dd (10%)", "MIC"], [components.qn, components.ql, components.cx, components.dd, Number(data.assessmentScore).toFixed(2)]], { widths: [1880, 1880, 1880, 1880, 1880], headerFill: COLORS.lightBlue });
     body += p(r("Model Impact Category: ", { bold: true }) + r(data.impactTier, { bold: true }), { raw: true, leftBorder: true, before: 120 });

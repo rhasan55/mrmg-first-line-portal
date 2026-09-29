@@ -36,6 +36,10 @@ assert.match(primaryXml, /B\. Business Importance \(Qualitative\)/);
 assert.match(primaryXml, /C\. Model Complexity/);
 assert.match(primaryXml, /D\. Interdependency/);
 assert.match(primaryXml, /Browser Package QA/);
+assert.match(primaryXml, /Which of the following types of GenAI solution fits this use-case best\?/);
+assert.match(primaryXml, /deck generation, control recommender, tech care support/);
+assert.match(primaryXml, /Models used for enhancing customer experience with no direct impact on AXP's core business/);
+assert.match(primaryXml, /Models used to create process efficiencies for colleagues with no direct impact on AXP's core business/);
 assert.match(primaryXml, /o:OLEObject/);
 assert.ok(primary.file("word/footnotes.xml"));
 assert.equal(Object.keys(primary.files).filter(name => name.startsWith("word/embeddings/") && !name.endsWith("/")).length, 5);
@@ -77,21 +81,19 @@ assert.match(email, /Content-Disposition: attachment; filename="MRMG First Line 
 const submission = JSON.parse(await outer.file("submission.json").async("text"));
 assert.equal(submission.metrics.length, 3);
 
-const lowRouteData = {
-  ...data,
-  useCaseName: "Low Route QA",
-  solutionType: "general",
-  regulatory: "no",
-  purpose: "productivity",
-  impactTier: "Low",
-  assessmentScore: null,
-  assessmentComponents: null,
-  section2Included: false,
-};
-const lowRouteResult = await generateBrowserPackage(lowRouteData, []);
-const lowOuter = await JSZip.loadAsync(await lowRouteResult.blob.arrayBuffer());
-const lowPrimary = await JSZip.loadAsync(await lowOuter.file("MRMG First Line Submission.docx").async("uint8array"));
-const lowPrimaryXml = await lowPrimary.file("word/document.xml").async("text");
-assert.doesNotMatch(lowPrimaryXml, /Section 2: Model Risk Tier Assessment/);
-assert.match(lowPrimaryXml, /It is a Low Impact model\. Proceed to fill in Section 1\./);
+for (const [name, routeData] of Object.entries({
+  general: { solutionType: "general", regulatory: "no", purpose: "efficiency" },
+  customizedCustomerExperience: { solutionType: "custom", regulatory: "no", purpose: "customerExperience" },
+  customizedEfficiency: { solutionType: "custom", regulatory: "no", purpose: "efficiency" },
+})) {
+  const lowRouteData = { ...data, ...routeData, useCaseName: `Low Route QA ${name}`, impactTier: "Low", assessmentScore: null, assessmentComponents: null, section2Included: false };
+  const lowRouteResult = await generateBrowserPackage(lowRouteData, []);
+  const lowOuter = await JSZip.loadAsync(await lowRouteResult.blob.arrayBuffer());
+  const lowPrimaryBytes = await lowOuter.file("MRMG First Line Submission.docx").async("uint8array");
+  if (name === "customizedCustomerExperience" && process.env.LOW_BROWSER_QA_OUTPUT) await fs.writeFile(process.env.LOW_BROWSER_QA_OUTPUT, lowPrimaryBytes);
+  const lowPrimary = await JSZip.loadAsync(lowPrimaryBytes);
+  const lowPrimaryXml = await lowPrimary.file("word/document.xml").async("text");
+  assert.doesNotMatch(lowPrimaryXml, /Section 2: Model Risk Tier Assessment/, `${name} must omit Section 2`);
+  assert.match(lowPrimaryXml, /It is a Low Impact model\. Proceed to fill in Section 1\./);
+}
 console.log("Browser generator package verified:", expected.join(", "));

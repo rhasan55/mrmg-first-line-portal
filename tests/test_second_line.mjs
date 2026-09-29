@@ -120,6 +120,10 @@ async function inspectCase(name, data, expectations) {
     const encoded = value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     assert.match(xml, new RegExp(`<w:color w:val="548235"\/>[\\s\\S]{0,180}<w:t xml:space="preserve">${encoded.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`), `${name}: ${value} should be green`);
   }
+  for (const value of expectations.red || []) {
+    const encoded = value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    assert.match(xml, new RegExp(`<w:color w:val="C00000"\/>[\\s\\S]{0,180}<w:t xml:space="preserve">${encoded.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`), `${name}: ${value} should be red`);
+  }
   for (const absent of expectations.absent || []) assert.doesNotMatch(xml, new RegExp(absent));
   if (process.env.SECOND_LINE_QA_DIR) {
     await fs.mkdir(process.env.SECOND_LINE_QA_DIR, { recursive: true });
@@ -128,14 +132,17 @@ async function inspectCase(name, data, expectations) {
   return xml;
 }
 
-await inspectCase("complete-medium", complete, { green: ["OMNI-48217", "Knowledge Assist", "1.50", "Accuracy ≥ 88%", "Expand edge-case testing"] });
+await inspectCase("complete-medium", complete, {
+  green: ["OMNI-48217", "Knowledge Assist", "1.50", "Accuracy ≥ 88%", "Expand edge-case testing"],
+  red: ["Approved with Findings", "accurately stated", "appropriate", "representative", "well-structured", "satisfactory"],
+});
 
 await inspectCase("partial-low", {
   omniId: "OMNI-10001", modelName: "Colleague Draft", modelVersion: "1.0", impactTier: "Low", impactSubtype: "Productivity Tool",
   businessUnit: "Operations", modelInputs: "user-authored prompts", modelOutputs: "draft summaries", regulatoryReporting: "not", llmNames: "Enterprise LLM",
   implementationDate: "2026-12-01", validationSampleSize: "75", validationMetrics: "acceptance rate of 86%", testingMethodology: "adequate", sampleAssessment: "representative", metricsAssessment: "meets",
   monitoringMetric: "Acceptance rate", monitoringSampleSize: "50", monitoringFrequency: "Annually", overallStatus: "Approved",
-}, { green: ["OMNI-10001", "Colleague Draft", "Acceptance rate"], absent: ["Expand edge-case testing"] });
+}, { green: ["OMNI-10001", "Colleague Draft", "Acceptance rate"], red: ["Approved"], absent: ["Expand edge-case testing"] });
 
 const sparseXml = await inspectCase("sparse", { modelName: "Sparse Evidence Model" }, { green: ["Sparse Evidence Model"], absent: ["OMNI-48217", "Jordan Lee"] });
 assert.match(sparseXml, /No findings were identified as a part of this validation/);
